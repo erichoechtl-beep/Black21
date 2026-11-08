@@ -108,6 +108,17 @@ const ACTIONS = {
   }
 };
 
+// Lichtwelle an der Stelle, wo der Finger den Knopf berührt
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.tbtn');
+  if (!b || b.disabled) return;
+  const r = b.getBoundingClientRect(), s = document.createElement('span');
+  s.className = 'rip';
+  s.style.left = (e.clientX - r.left) + 'px'; s.style.top = (e.clientY - r.top) + 'px';
+  b.appendChild(s);
+  setTimeout(() => s.remove(), 600);
+});
+
 document.addEventListener('click', e => {
   if (App.suppressClick) { App.suppressClick = false; return; }
   const cardEl = e.target.closest('#player-hands .card');
@@ -415,7 +426,7 @@ function updateTable(E) {
   const opp = opponentFor(r.blind);
   const oppEl = $('#opp');
   if (oppEl.dataset.id !== opp.id) {
-    oppEl.innerHTML = icon(opp.id, 54);
+    oppEl.innerHTML = icon(opp.id, 34);
     oppEl.dataset.id = opp.id;
     oppEl.className = 'opp-avatar' + (opp.isBoss ? ' boss' : '');
   }
@@ -493,7 +504,9 @@ function updateTable(E) {
   if (natural && !App.bjSeen.has(natural.id)) { App.bjSeen.add(natural.id); celebrateBlackjack(); }
 
   $('#loadout').innerHTML = loadoutHtml(E);
-  $('#actions').innerHTML = actionsHtml(E);
+  // Nur neu zeichnen, wenn sich die Knöpfe wirklich ändern (sonst starten die Animationen ständig neu)
+  const aEl = $('#actions'), ah = actionsHtml(E);
+  if (aEl.dataset.h !== ah) { aEl.innerHTML = ah; aEl.dataset.h = ah; }
 }
 
 function loadoutHtml(E) {
@@ -512,6 +525,9 @@ function loadoutHtml(E) {
   return h + '</div><div class="inspect">' + esc(App.inspected) + '</div>';
 }
 
+const BTN_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="3" fill="currentColor" fill-opacity=".18"/><path d="M12 8v8M8 12h8"/></svg>';
+const BTN_HOLD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="currentColor" fill-opacity=".18"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/></svg>';
+
 function actionsHtml(E) {
   const btn = (act, label, enabled, cls) => '<button class="tbtn ' + (cls || '') + '" data-act="' + act + '"' + (enabled ? '' : ' disabled') + '>' + label + '</button>';
   if (E.phase === 'playerTurn') {
@@ -521,11 +537,11 @@ function actionsHtml(E) {
     if (E.canSplit) extras += btn('split', 'SPLIT', true, 'dimmed');
     if (E.round.discardsLeft > 0) extras += btn('burn', App.burnMode ? 'CANCEL' : 'REROLL (' + E.round.discardsLeft + ')', E.canBurn, App.burnMode ? 'red' : 'dimmed');
     return '<div class="col" style="gap:8px;padding-bottom:4px"><div class="row">' +
-      btn('hit', 'HIT', E.canHit, 'green') + btn('stand', 'STAND', E.canStand) + '</div>' +
+      btn('hit', BTN_PLUS + 'HIT', E.canHit, 'big green') + btn('stand', BTN_HOLD + 'STAND', E.canStand, 'big') + '</div>' +
       (extras ? '<div class="row">' + extras + '</div>' : '') + '</div>';
   }
   if (E.phase === 'dealerTurn') return '<div style="height:52px"></div>';
-  if (E.phase === 'handResult') return '<div style="padding-bottom:4px">' + btn('continue-hand', 'CONTINUE', true, 'green') + '</div>';
+  if (E.phase === 'handResult') return '<div style="padding-bottom:4px">' + btn('continue-hand', 'CONTINUE', true, 'big green') + '</div>';
   return '';
 }
 
@@ -583,7 +599,9 @@ async function playTally(token, resolved, key) {
   await sleep(450); // kurze Pause nach dem Aufdecken, bevor die Punkte gezählt werden
   if (token !== App.tallyToken) return;
   const head = $('#t-head'), chips = $('#t-chips'), mult = $('#t-mult');
+  if (!head || !chips || !mult) return; // Bildschirm wurde schon verlassen
   for (let i = 0; i < resolved.length; i++) {
+    if (!head.isConnected) return;
     const r = resolved[i];
     head.textContent = (resolved.length > 1 ? 'HAND ' + (i + 1) + ': ' : '') + OUTCOME_LABEL[r.outcome];
     head.className = 't-head ' + (r.outcome === 'bust' || r.outcome === 'lose' ? 'red' : 'green');
@@ -591,7 +609,7 @@ async function playTally(token, resolved, key) {
     const n = r.breakdown.events.length;
     for (let step = 1; step <= n; step++) {
       await sleep(240);
-      if (token !== App.tallyToken) return;
+      if (token !== App.tallyToken || !chips.isConnected) return;
       const run = runningWithFactor(r.breakdown, step);
       chips.textContent = run.chips; mult.textContent = fmtNum(run.mult);
       popEl(chips); popEl(mult);
@@ -617,13 +635,13 @@ function blindHtml(E) {
   const ahead = b.boss ? '' :
     '<div class="center small red ahead">' + icon(E.run.bossForAnte, 26) + '<span>BOSS AHEAD: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
   return '<div class="col" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '">' + icon(opp.id, 120) + '</div></div>' +
+    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '">' + icon(opp.id, 92) + '</div></div>' +
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
     '<div class="center small dim" style="margin-top:-6px">' + opp.intro + '</div>' +
     '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
     '<div class="small dim" style="margin-top:4px">REWARD $' + kind.reward + ' &middot; ' + hands + ' HANDS &middot; ' + E.discardsPerRound + ' REROLLS</div></div>' +
     ahead + '<div class="spacer"></div>' + loadoutHtml(E) +
-    '<button class="tbtn green" data-act="play-blind">PLAY</button>' +
+    '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
     '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP RUN') + '</button></div>';
 }
 
@@ -635,7 +653,7 @@ function cashoutHtml(E) {
     '<div class="center huge bold green glow">TABLE CLEARED</div>' +
     '<div class="panel amber">' + line(BLIND_KINDS[E.round.blind.kind].name + ' REWARD', p.blindReward) + line('UNUSED HANDS', p.handsBonus) +
     line('INTEREST', p.interest) + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' +
-    '<div class="spacer"></div><button class="tbtn green" data-act="cash-out">CASH OUT</button></div>';
+    '<div class="spacer"></div><button class="tbtn big green" data-act="cash-out">CASH OUT</button></div>';
 }
 
 // ----- Shop: drei einfache Angebote -----

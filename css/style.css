@@ -353,3 +353,60 @@ body.crt-full #crt canvas { display: block; position: absolute; inset: 0; width:
   animation: letterin .5s ease-out .6s both; }
 .card.bj-glow .face { animation: goldpulse .5s ease-in-out 4; }
 @keyframes goldpulse { 50% { box-shadow: 0 0 26px 8px rgba(255, 214, 90, .95); filter: brightness(1.25); } }
+
+/* ===== Lebendige Buttons: Druck-Gefühl, Glanz, Ripple, Pop-in ===== */
+.tbtn { position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
+  transition: transform .12s cubic-bezier(.2, 1.4, .4, 1), box-shadow .12s, filter .15s; }
+.tbtn:active:not(:disabled) { transform: translateY(2px) scale(.97); }
+.tbtn .rip { position: absolute; border-radius: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0) 70%); animation: rip .55s ease-out forwards; }
+@keyframes rip { from { transform: scale(.4); opacity: .9; } to { transform: scale(14); opacity: 0; } }
+
+/* Die zwei Hauptknöpfe */
+.tbtn.big { --c: 255, 184, 0; min-height: 58px; font-size: 22px; letter-spacing: 3px; border-radius: 16px; border-width: 2px;
+  display: flex; align-items: center; justify-content: center; gap: 9px; color: #fff3d0; border-color: rgb(var(--c));
+  background: linear-gradient(180deg, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 52%), rgba(var(--c), .20);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55);
+  box-shadow: 0 5px 0 rgba(var(--c), .45), 0 8px 14px rgba(0, 0, 0, .5), 0 0 16px rgba(var(--c), .35), inset 0 1px 0 rgba(255, 255, 255, .3);
+  animation: btnin .42s cubic-bezier(.2, 1.7, .4, 1) both; }
+.row > .tbtn.big + .tbtn.big { animation-delay: .07s; }
+.tbtn.big.green { --c: 77, 255, 46; color: #eaffe4; }
+.tbtn.big:active:not(:disabled) { transform: translateY(5px) scale(.97); filter: brightness(1.25);
+  box-shadow: 0 0 0 rgba(var(--c), 0), 0 2px 6px rgba(0, 0, 0, .5), 0 0 26px rgba(var(--c), .8), inset 0 1px 0 rgba(255, 255, 255, .3);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .05) 60%), rgba(var(--c), .38); color: #fff; }
+.tbtn.big:disabled { box-shadow: 0 3px 0 rgba(var(--c), .25); animation: none; }
+.tbtn.big svg { width: 24px; height: 24px; flex: none; filter: drop-shadow(0 0 5px rgba(var(--c), .9)); }
+.tbtn.big.green:not(:disabled) svg { animation: iconbob 1.8s ease-in-out infinite; }
+/* Glanz-Streifen, der ab und zu über den Knopf wischt */
+.tbtn.big::after { content: ""; position: absolute; top: -20%; bottom: -20%; left: -40%; width: 28%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-20deg);
+  animation: sheen 3.6s ease-in-out 1s infinite; }
+.row > .tbtn.big + .tbtn.big::after { animation-delay: 2.2s; }
+.tbtn.big:disabled::after { display: none; }
+/* HIT atmet sanft, damit man sieht: hier geht es weiter */
+.tbtn.big.green:not(:disabled) { animation: btnin .42s cubic-bezier(.2, 1.7, .4, 1) both, breathe 2.2s ease-in-out .5s infinite; }
+@keyframes btnin { from { transform: translateY(18px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes breathe { 50% { box-shadow: 0 5px 0 rgba(var(--c), .45), 0 8px 14px rgba(0, 0, 0, .5), 0 0 28px rgba(var(--c), .7), inset 0 1px 0 rgba(255, 255, 255, .3); } }
+@keyframes sheen { 0%, 62% { left: -40%; } 85%, 100% { left: 130%; } }
+@keyframes iconbob { 50% { transform: translateY(-2px) scale(1.12); } }
+
+/* Kleine Extra-Knöpfe und CONTINUE bekommen ebenfalls ein Pop-in */
+#actions .tbtn:not(.big) { animation: btnin .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+#actions .row + .row .tbtn:nth-child(2) { animation-delay: .06s; }
+#actions .row + .row .tbtn:nth-child(3) { animation-delay: .12s; }
+
+/* Kleinerer Gegner-Avatar */
+.opp-row { min-height: 48px; }
+.opp-avatar { width: 46px; height: 46px; }
+.opp-avatar svg { width: 34px; height: 34px; }
+.opp-big { width: 124px; height: 124px; }
+.opp-big svg { width: 92px; height: 92px; }
+.coll-row .opp-avatar svg { width: 38px; height: 38px; }
+
+@media (max-height: 720px) { .tbtn.big { min-height: 50px; font-size: 19px; } }
+@media (prefers-reduced-motion: reduce) { .tbtn, .tbtn::after, .tbtn svg { animation: none !important; } }
+
+/* Leere Charm-/Item-Leiste braucht keinen Platz (wichtig auf kleinen Handys) */
+.loadout:not(:has(.badge:not(.empty))) { display: none; }
+.inspect:empty { min-height: 0; margin: 0; }
+@media (max-height: 720px) { .screen { padding-top: 14px; padding-bottom: 30px; } }
