@@ -94,7 +94,7 @@ const CHARMS = {
   goldenTooth: { name: 'Golden Tooth', text: 'Win a hand: +$2.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
   cardCounter: { name: 'Card Counter', text: '+1 Mult per card after the 2nd.', price: 5, rarity: 'common', unlockAnte: 2 },
   // ---- Casino-Charms ----
-  rouletteTable: { name: 'Roulette Table', text: 'A red 9 in your hand: x2 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
+  rouletteTable: { name: 'Roulette Table', text: 'A new lucky card each round: +8 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
   freeDrink: { name: 'Free Drink', text: 'Lose a hand: +$1.', price: 4, rarity: 'common', unlockAnte: 0 },
   jackpotBell: { name: 'Jackpot Bell', text: 'Exactly 21: +4 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
   slotMachine: { name: 'Slot Machine', text: '1 in 4: 7-7-7 for +8 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
@@ -259,7 +259,7 @@ function applyCharm(charm, ctx, b) {
       break;
     case 'insuranceSlip': break; // nur bei Bust relevant
     case 'rouletteTable':
-      if (cards.some(c => c.rank === 9 && isRedSuit(c.suit))) bdAdd(b, name + ' (red 9)', 'xMult', 2);
+      if (ctx.roulette && cards.some(c => c.rank === ctx.roulette.rank && isRedSuit(c.suit) === ctx.roulette.red)) bdAdd(b, name + ' (' + (ctx.roulette.red ? 'red ' : 'black ') + rankLabel(ctx.roulette.rank) + ')', 'addMult', 8);
       break;
     case 'luckyHorseshoe':
       if (ctx.outcome === 'win') bdAdd(b, name, 'addMult', 3);
@@ -319,13 +319,24 @@ function transition(phase, ev) {
 }
 
 // ---------- Gegner mit Persönlichkeit ----------
-const OPPONENTS = [
-  { id: 'sleepySam', name: 'SLEEPY SAM', intro: 'Barely awake. Easy money?' },
-  { id: 'slickVic', name: 'SLICK VIC', intro: 'Sunglasses indoors. Never a good sign.' }
-];
+const OPP_INFO = {
+  sleepySam: { name: 'SLEEPY SAM', intro: 'Barely awake. Easy money?' },
+  nervousNed: { name: 'NERVOUS NED', intro: 'Sweats. A lot.' },
+  grannyGail: { name: 'GRANNY GAIL', intro: 'Sweet. Sharper than she looks.' },
+  tipsyTom: { name: 'TIPSY TOM', intro: 'Lost on his way to the bar.' },
+  slickVic: { name: 'SLICK VIC', intro: 'Sunglasses indoors. Never a good sign.' },
+  cowboyCal: { name: 'COWBOY CAL', intro: 'Rides in. Plays hard.' },
+  ladyLuck: { name: 'LADY LUCK', intro: 'Fortune smiles. Sometimes.' },
+  rustyRobot: { name: 'RUSTY ROBOT', intro: 'Beep. Calculating your odds.' }
+};
+// Kleine Blinds und große Blinds ziehen reihum neue Gegner
+const OPP_POOL = [['sleepySam', 'nervousNed', 'grannyGail', 'tipsyTom'], ['slickVic', 'cowboyCal', 'ladyLuck', 'rustyRobot']];
+const OPPONENTS = Object.keys(OPP_INFO).map(id => Object.assign({ id }, OPP_INFO[id]));
+function oppIdFor(ante, kind) { const pool = OPP_POOL[kind]; return pool[(ante - 1) % pool.length]; }
 function opponentFor(blind) {
   if (blind.kind === 2 && blind.boss) return { id: blind.boss, name: BOSSES[blind.boss].name.toUpperCase(), intro: BOSSES[blind.boss].rule, isBoss: true };
-  return Object.assign({ isBoss: false }, OPPONENTS[blind.kind]);
+  const id = oppIdFor(blind.ante, blind.kind);
+  return Object.assign({ isBoss: false, id }, OPP_INFO[id]);
 }
 // Sprüche des Dealers nach jeder Hand
 const QUIPS = {
@@ -343,7 +354,13 @@ const QUIPS_BY = {
   noFaceCards: { win: ['Blasphemy!', 'No kings for you!'], lose: ['Crushed!', 'Kings fall.', 'Smashed to bits.'], bust: ['Shattered!', 'Smash!'] },
   faceDownInitial: { win: ['I did not see that.', 'Lucky guess...'], lose: ['Called it. Blind!', 'Can you see me?', 'I felt that one.'], bust: ['Oops. Even I saw it.', 'Bust! Hah!'] },
   shortHanded: { win: ['Tick. Tock.', 'Time is running out!'], lose: ['Too slow!', 'Time is money.', 'Tick tock, loser.'], bust: ['Out of time AND cards!', 'Tick... bust.'] },
-  bustTax: { win: ['Hmph. Cheap trick.', 'Interest is due.'], lose: ['Pay up!', 'Cha-ching!', 'Taxes, darling.'], bust: ['Bust? That is $3!', 'Invoice sent.'] }
+  bustTax: { win: ['Hmph. Cheap trick.', 'Interest is due.'], lose: ['Pay up!', 'Cha-ching!', 'Taxes, darling.'], bust: ['Bust? That is $3!', 'Invoice sent.'] },
+  nervousNed: { win: ['Oh no, oh no!', 'You are too good!'], lose: ['Phew! I won?!', 'Did I do that?'], bust: ['Eek! 22?!', 'Thank goodness!'] },
+  grannyGail: { win: ['Well done, dear.', 'Have a cookie.'], lose: ['Better luck, sweetie.', 'Granny wins!'], bust: ['Oh dear, too many.', 'Tsk tsk.'] },
+  tipsyTom: { win: ['Hic! You won?', 'Wha... nice one.'], lose: ['Hic! I win!', 'Cheers!'], bust: ['Whoops! Hic.', 'Too much, buddy.'] },
+  cowboyCal: { win: ['Well, shoot.', 'Lucky draw, partner.'], lose: ['Yeehaw!', 'Eat my dust.'], bust: ['Bust, partner!', 'Over the fence!'] },
+  ladyLuck: { win: ['Fortune likes you.', 'Enjoy it, darling.'], lose: ['Not today, honey.', 'Luck is a lady.'], bust: ['Too greedy, honey.', 'Oops!'] },
+  rustyRobot: { win: ['ERROR. YOU WIN.', 'Recalculating...'], lose: ['BEEP. I WIN.', 'Odds: in my favor.'], bust: ['OVERFLOW.', '21 EXCEEDED.'] }
 };
 function quipFor(outcome, n, oppId) {
   const own = QUIPS_BY[oppId] && QUIPS_BY[oppId][outcome];

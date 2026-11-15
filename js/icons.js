@@ -109,7 +109,7 @@ function icon(name, size) {
     return '<svg class="ico" viewBox="0 0 48 48" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON_48[name] + '</svg>';
   }
   if (typeof ICON_CHAR !== 'undefined' && ICON_CHAR[name]) {
-    return '<svg class="ico char" viewBox="0 0 100 100" width="' + size + '" height="' + size + '" aria-hidden="true">' + ICON_CHAR[name] + '</svg>';
+    return '<svg class="ico char px" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" shape-rendering="crispEdges" aria-hidden="true">' + ICON_CHAR[name] + '</svg>';
   }
   return '';
 }

@@ -1,117 +1,233 @@
 'use strict';
-/* chars.js: die Gegner als farbige Comic-Figuren (alles per Code gezeichnet, Box 100x100).
-   Klassen für die Animationen: .eyes (blinzeln, Schreck), .mouth (Schreck), .closed/.wide (nur Sam), .brows */
+/* chars.js: alle Gegner als kleine Pixel-Figuren im "Game & Watch"-Look (24x24 Raster, alles per Code).
+   Jede Figur hat drei Bilder: A und B wechseln ständig (wie beim LCD-Spiel), S ist der Schreck-Ausdruck.
+   Wert im Raster: 1 = Tinte (dunkel), 2 = helles Loch (LCD-Farbe), 0 = leer. */
 
-const OL = '#1d1208';
-const OLN = 'stroke="' + OL + '" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"';
-const SKIN = '#f3c79b';
+const PXN = 24;
+class PixGrid {
+  constructor() { this.a = []; for (let y = 0; y < PXN; y++) this.a.push(new Array(PXN).fill(0)); }
+  p(x, y, v) { if (x >= 0 && x < PXN && y >= 0 && y < PXN) this.a[y][x] = v === undefined ? 1 : v; return this; }
+  r(x, y, w, h, v) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, v); return this; }
+  e(cx, cy, rx, ry, v) {
+    for (let y = 0; y < PXN; y++) for (let x = 0; x < PXN; x++) {
+      const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+      if (dx * dx + dy * dy <= 1) this.p(x, y, v);
+    }
+    return this;
+  }
+  l(x0, y0, x1, y1, v) { // Linie (Bresenham)
+    let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, er = dx + dy;
+    for (;;) {
+      this.p(x0, y0, v);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * er;
+      if (e2 >= dy) { er += dy; x0 += sx; }
+      if (e2 <= dx) { er += dx; y0 += sy; }
+    }
+    return this;
+  }
+  // Text-Muster: '#' Tinte, 'o' Loch, alles andere überspringen
+  t(x, y, rows) { rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = row[i]; if (c === '#') this.p(x + i, y + j, 1); else if (c === 'o') this.p(x + i, y + j, 2); } }); return this; }
+  shift(dx, dy) { const g = new PixGrid(); for (let y = 0; y < PXN; y++) for (let x = 0; x < PXN; x++) if (this.a[y][x]) g.p(x + dx, y + dy, this.a[y][x]); return g; }
+  svg() {
+    let ink = '', lite = '';
+    for (let y = 0; y < PXN; y++) {
+      let x = 0;
+      while (x < PXN) {
+        const v = this.a[y][x];
+        if (!v) { x++; continue; }
+        let w = 1; while (x + w < PXN && this.a[y][x + w] === v) w++;
+        const seg = 'M' + x + ' ' + y + 'h' + w + 'v1h-' + w + 'z';
+        if (v === 1) ink += seg; else lite += seg;
+        x += w;
+      }
+    }
+    return '<path class="k" d="' + ink + '"/><path class="l" d="' + lite + '"/>';
+  }
+}
 
-const headShape = (skin, rx) => {
-  rx = rx || 24;
-  return '<circle cx="' + (50 - rx - 2) + '" cy="52" r="6" fill="' + skin + '" ' + OLN + '/><circle cx="' + (50 + rx + 2) + '" cy="52" r="6" fill="' + skin + '" ' + OLN + '/>' +
-    '<ellipse cx="50" cy="50" rx="' + rx + '" ry="27" fill="' + skin + '" ' + OLN + '/>';
+// ---- gemeinsame Bausteine ----
+function pxHead(g, w) { // Kopf mit Umriss und hellem Gesicht
+  w = w || 6.6;
+  g.r(4, 9, 1, 3); g.r(19, 9, 1, 3);
+  g.e(12, 10, w, 7.6, 1); g.e(12, 10, w - 1.3, 6.4, 2);
+}
+function pxTorso(g, o) {
+  o = o || {};
+  g.r(10, 16, 4, 2, 1);
+  g.r(6, 18, 12, 1, 1); g.r(4, 19, 16, 1, 1); g.r(2, 20, 20, 4, 1);
+  if (o.v !== false) { g.r(9, 18, 6, 1, 2); g.r(10, 19, 4, 1, 2); g.r(11, 20, 2, 1, 2); }
+  if (o.tie) g.r(11, 19, 2, 4, 1);
+  if (o.bow) { g.r(9, 19, 2, 2, 1); g.r(13, 19, 2, 2, 1); g.r(11, 19, 2, 1, 1); }
+}
+// Augen: Stil 'dot' (blinzelt), 'shut' (geschlossen). S = große Ringe
+function pxEyes(g, f, style, y) {
+  y = y || 8;
+  if (f === 'S') { g.r(7, y - 1, 4, 4, 1); g.r(8, y, 2, 2, 2); g.r(13, y - 1, 4, 4, 1); g.r(14, y, 2, 2, 2); g.p(9, y + 1, 1); g.p(15, y + 1, 1); return; }
+  if (style === 'shut' || f === 'B') { g.r(8, y + 1, 2, 1); g.r(14, y + 1, 2, 1); return; }
+  g.r(8, y, 2, 2); g.r(14, y, 2, 2);
+}
+function pxMouth(g, f, style, y) {
+  y = y || 13;
+  if (f === 'S') { g.r(10, y - 1, 4, 4, 1); g.r(11, y, 2, 2, 2); return; }
+  if (style === 'smile') { g.r(10, y, 4, 1); g.p(9, y - 1); g.p(14, y - 1); if (f === 'B') g.r(10, y + 1, 4, 1); return; }
+  if (style === 'flat') { g.r(10, y, 4, 1); return; }
+  if (style === 'snore') { g.r(11, y - 1, 2, 3); if (f === 'B') g.p(11, y, 2); return; }
+  g.r(10, y, 4, 1);
+}
+function pxBrows(g, f, angry) {
+  if (angry) { g.l(7, 5, 10, 7); g.l(16, 5, 13, 7); if (f === 'B') { g.p(10, 8); g.p(13, 8); } }
+  else { g.r(8, 6, 3, 1); g.r(13, 6, 3, 1); if (f === 'S') { g.r(8, 5, 3, 1); g.r(13, 5, 3, 1); g.r(8, 6, 3, 1, 0); g.r(13, 6, 3, 1, 0); } }
+}
+
+const PIX_DEFS = {
+  // ===== Kleine Blinds =====
+  sleepySam(g, f) {
+    pxTorso(g, { bow: true }); pxHead(g);
+    g.r(6, 5, 12, 2); g.r(7, 4, 10, 1);                  // Dealer-Schirm
+    pxEyes(g, f, 'shut', 8);
+    g.r(8, 12, 2, 1, 1); g.r(14, 12, 2, 1, 1);            // Augenringe
+    pxMouth(g, f, 'snore');
+    if (f === 'A') g.t(19, 3, ['###', '.#.', '###']);
+    if (f === 'B') { g.t(18, 4, ['###', '.#.', '###']); g.t(21, 0, ['##', '#.', '##'].map(r => r)); g.p(15, 15); }
+  },
+  nervousNed(g, f) {
+    pxTorso(g, { tie: true }); pxHead(g);
+    g.t(7, 1, ['#.#.#.#.#', '.#####.#.', '#########']);   // Stachelhaare
+    g.r(6, 3, 12, 2);
+    if (f === 'S') pxEyes(g, f); else { g.r(7, 7, 4, 4, 1); g.r(8, 8, 2, 2, 2); g.r(13, 7, 4, 4, 1); g.r(14, 8, 2, 2, 2); g.p(f === 'A' ? 8 : 9, 9); g.p(f === 'A' ? 14 : 15, 9); }
+    if (f === 'S') pxMouth(g, f); else { g.t(9, 13, f === 'A' ? ['#.#.#.', '.#.#.#'] : ['.#.#.#', '#.#.#.']); }
+    g.p(18, f === 'A' ? 5 : 8); g.p(18, f === 'A' ? 6 : 9);  // Schweißtropfen
+  },
+  grannyGail(g, f) {
+    pxTorso(g, { v: false }); pxHead(g);
+    g.r(6, 3, 12, 3); g.r(5, 6, 2, 5); g.r(17, 6, 2, 5); g.e(12, 2.4, 3.6, 2.4, 1);  // Haar und Dutt
+    g.r(11, 20, 2, 1, 2); g.p(11, 22, 2); g.p(12, 22, 2);                                 // Strickjacke-Knöpfe
+    if (f === 'S') { g.r(7, 7, 4, 4, 1); g.r(8, 8, 2, 2, 2); g.r(13, 7, 4, 4, 1); g.r(14, 8, 2, 2, 2); g.p(9, 9); g.p(15, 9); }
+    else { g.r(7, 7, 4, 4, 1); g.r(8, 8, 2, 2, 2); g.r(13, 7, 4, 4, 1); g.r(14, 8, 2, 2, 2); g.r(11, 8, 2, 1); if (f === 'A') { g.p(9, 9); g.p(15, 9); } else { g.r(8, 9, 2, 1); g.r(14, 9, 2, 1); } }
+    pxMouth(g, f, 'smile');
+    g.p(7, 12, 1); g.p(16, 12, 1);                                                          // Wangenrot
+  },
+  tipsyTom(g, f) {
+    const dx = f === 'A' ? -1 : 1;
+    const h = new PixGrid();
+    pxTorso(h, { tie: false }); pxHead(h);
+    h.r(5, 4, 14, 2); h.r(7, 1, 10, 3); h.r(7, 3, 10, 1, 1);                               // Hut
+    h.p(17, 0); h.p(18, 1); h.p(18, 0);                                                      // Blume
+    if (f === 'S') pxEyes(h, f); else { h.l(8, 8, 9, 9); h.l(9, 8, 8, 9); h.l(14, 8, 15, 9); h.l(15, 8, 14, 9); }
+    h.r(11, 11, 2, 2, 1);                                                                    // rote Nase
+    if (f === 'S') pxMouth(h, f); else { h.t(9, 13, f === 'A' ? ['#.#.#.', '.#.#.#'] : ['.#.#.#', '#.#.#.']); }
+    h.r(20, 16, 2, 5, 1); h.r(20, 14, 2, 2, 1); h.r(20, 17, 2, 2, 2);                       // Flasche
+    const s = h.shift(f === 'S' ? 0 : dx, 0);
+    for (let y = 0; y < PXN; y++) for (let x = 0; x < PXN; x++) if (s.a[y][x]) g.a[y][x] = s.a[y][x];
+  },
+  // ===== Große Blinds =====
+  slickVic(g, f) {
+    pxTorso(g, { tie: true }); pxHead(g);
+    g.r(6, 3, 12, 3); g.r(5, 4, 2, 4); g.r(8, 2, 8, 1); g.p(17, 5, 1);                       // Schmalzlocke
+    if (f === 'S') { g.r(7, 7, 10, 3); g.r(11, 7, 2, 1, 2); g.r(8, 10, 2, 1); g.r(14, 10, 2, 1); }
+    else { g.r(7, 7, 10, 3); g.p(11, 8, 2); g.p(12, 8, 2); g.r(8, 7, 2, 1, 2); g.r(14, 7, 2, 1, 2); } // verspiegelte Brille
+    g.r(10, 13, 4, 1); g.p(14, 12); if (f === 'S') pxMouth(g, f);
+    g.r(14, 14, 6, 1); g.p(20, 14, 2); g.p(f === 'A' ? 21 : 20, f === 'A' ? 12 : 11);        // Zigarre mit Glut und Rauch
+  },
+  cowboyCal(g, f) {
+    pxTorso(g, { v: false }); pxHead(g);
+    g.r(1, 5, 22, 1); g.r(3, 4, 18, 1); g.r(7, 1, 10, 4); g.r(7, 3, 10, 1, 2);               // Cowboyhut
+    g.p(12, 20, 2); g.p(11, 21, 2); g.p(12, 21, 2); g.p(13, 21, 2); g.p(12, 22, 2);          // Sheriffstern
+    pxEyes(g, f, 'dot', 8);
+    g.r(8, 11, 8, 1);                                                                          // Schnurrbart
+    g.p(8, 12); g.p(15, 12);
+    if (f === 'S') pxMouth(g, f, null, 13); else g.r(11, 13, 2, 1);
+  },
+  ladyLuck(g, f) {
+    pxTorso(g, { v: true }); pxHead(g);
+    g.r(5, 3, 14, 3); g.r(4, 5, 3, 12); g.r(17, 5, 3, 12); g.r(6, 5, 4, 1, 1);                // lange Haare
+    g.p(18, 1); g.p(19, 2); g.p(17, 2); g.p(18, 3);                                            // Haarspange (Kleeblatt)
+    if (f === 'S') pxEyes(g, f); else { g.r(8, 8, 2, 2); g.r(14, 8, 2, 2); g.p(7, 7); g.p(16, 7); if (f === 'B') { g.r(8, 8, 2, 2, 2); g.r(8, 9, 2, 1); g.r(14, 8, 2, 2, 2); g.r(14, 9, 2, 1); } }
+    if (f === 'S') pxMouth(g, f); else { g.r(11, 13, 2, 1); g.p(10, 12); g.p(13, 12); }       // Lippen
+    g.p(16, 11);                                                                                // Schönheitsfleck
+    g.p(4, 12); g.p(19, 12);                                                                    // Ohrringe
+  },
+  rustyRobot(g, f) {
+    g.r(10, 16, 4, 2); g.r(3, 18, 18, 6); g.r(5, 19, 14, 3, 2); g.r(7, 20, 3, 1); g.r(11, 20, 2, 1); g.r(14, 20, 3, 1); // Brust mit Lämpchen
+    g.r(6, 5, 12, 12, 1); g.r(7, 6, 10, 10, 2);                                                // eckiger Kopf
+    g.r(2, 9, 3, 4); g.r(19, 9, 3, 4);                                                         // Schrauben-Ohren
+    g.r(11, 1, 2, 4); g.r(10, 0, 4, 2, f === 'A' ? 1 : 2); g.p(11, 0, 1); g.p(12, 0, 1);        // Antenne blinkt
+    if (f === 'S') { g.r(8, 7, 3, 3); g.r(13, 7, 3, 3); g.r(9, 8, 1, 1, 2); g.r(14, 8, 1, 1, 2); }
+    else if (f === 'B') { g.r(8, 9, 3, 1); g.r(13, 9, 3, 1); }
+    else { g.r(8, 8, 3, 2); g.r(13, 8, 3, 2); }
+    g.r(8, 12, 8, 3, 1); for (let x = 9; x < 16; x += 2) g.r(x, 12, 1, 3, 2); if (f === 'S') { g.r(9, 12, 6, 3, 2); g.r(8, 12, 8, 1, 1); }
+  },
+
+  // ===== Bosse =====
+  acesCountOne(g, f) {
+    pxTorso(g, { v: true }); pxHead(g);
+    g.l(15, 3, 17, 6, 1); g.p(16, 6, 2);                                                       // Narbe
+    pxBrows(g, f, true);
+    pxEyes(g, f, 'dot', 8);
+    g.r(7, 11, 10, 2); g.r(6, 12, 3, 2); g.r(15, 12, 3, 2); g.r(11, 11, 2, 1, 2);              // Schnurrbart
+    if (f === 'S') pxMouth(g, f, null, 14); else g.r(10, 14, 4, 1);
+    g.r(15, 19, 4, 5, 2); g.r(16, 20, 2, 2, 1);                                                 // Ass in der Tasche
+    g.p(12, 3, 2); g.p(11, 3, 2);                                                               // Glatzen-Glanz
+  },
+  dealerHitsSoft18(g, f) {
+    pxTorso(g, { v: false }); pxHead(g, 7);
+    g.e(12, 2.6, 6, 2.6, 1); g.r(5, 4, 14, 2); g.e(7, 3, 2.2, 2, 1); g.e(17, 3, 2.2, 2, 1);      // Kochmütze
+    g.r(10, 18, 4, 5, 2); g.r(11, 19, 2, 3, 1);                                                  // Lätzchen
+    if (f === 'S') pxEyes(g, f); else { g.r(8, 7, 3, 3); g.r(13, 7, 3, 3); g.p(9, 8, 2); g.p(14, 8, 2); }
+    pxBrows(g, f, false);
+    const open = f === 'B' ? 3 : 4;
+    g.r(7, 11, 10, open + 1, 1); g.r(8, 12, 8, open - 1, 2); g.r(9, 12, 6, 1, 1); if (f === 'S') { g.r(8, 12, 8, 4, 2); }  // riesiges Maul mit Zähnen
+    g.r(10, 13 + (open - 3), 4, 1, 1); g.p(18, 15); g.p(18, 16);                                  // Zunge und Sabber
+  },
+  noFaceCards(g, f) {
+    pxTorso(g, { v: false }); pxHead(g);
+    g.r(6, 3, 12, 3); g.r(5, 5, 14, 1); g.r(8, 2, 8, 1); g.r(11, 2, 2, 3, 2);                      // Bauhelm
+    g.r(6, 11, 12, 6); g.r(8, 12, 8, 3, 2); g.r(5, 11, 1, 4); g.r(18, 11, 1, 4);                     // Vollbart
+    pxBrows(g, f, true); pxEyes(g, f, 'dot', 8);
+    if (f === 'S') pxMouth(g, f, null, 12); else g.r(10, 13, 4, 1, 1);
+    if (f === 'A') { g.l(21, 13, 17, 3); g.r(15, 0, 6, 3); g.r(16, 1, 4, 1, 2); }                    // Hammer oben
+    else { g.l(21, 14, 21, 5); g.r(19, 3, 5, 3); g.r(20, 4, 3, 1, 2); }                              // Hammer schlägt zu
+  },
+  faceDownInitial(g, f) {
+    pxTorso(g, { tie: true }); pxHead(g);
+    g.r(6, 3, 12, 3); g.r(5, 5, 14, 1);
+    g.r(5, 7, 14, 3); g.p(19, 8); g.p(20, 7); g.p(21, 6); g.p(20, 9); g.p(21, 10);                  // Augenbinde mit Knoten
+    if (f === 'S') { g.r(5, 7, 14, 3, 0); g.r(5, 7, 14, 3); g.r(11, 8, 2, 1, 2); }
+    if (f === 'S') pxMouth(g, f); else { g.r(10, 13, 4, 1); g.p(14, 12); }
+    if (f === 'A') g.t(20, 1, ['.##', '..#', '.#.', '...', '.#.']);                                  // Fragezeichen
+    if (f === 'B') g.t(2, 1, ['##.', '..#', '.#.', '...', '.#.']);
+  },
+  shortHanded(g, f) {
+    const h = new PixGrid();
+    h.e(12, 14, 9, 9, 1); h.e(12, 14, 7.6, 7.6, 2);                                                 // Wecker
+    h.e(5, 5, 3.4, 3, 1); h.e(19, 5, 3.4, 3, 1); h.r(11, 0, 2, 3, 1); h.r(4, 22, 3, 2); h.r(17, 22, 3, 2);
+    h.l(12, 14, 12, 9, 1); h.l(12, 14, f === 'A' ? 16 : 17, f === 'A' ? 17 : 15, 1);                // Zeiger
+    pxBrows(h, f, true); h.r(8, 12, 2, 2); h.r(14, 12, 2, 2);
+    if (f === 'S') { h.r(8, 11, 3, 3, 1); h.r(9, 12, 1, 1, 2); h.r(13, 11, 3, 3, 1); h.r(14, 12, 1, 1, 2); }
+    h.r(9, 18, 6, 1); h.p(8, 17); h.p(15, 17); if (f === 'S') h.r(10, 17, 4, 3, 1);
+    const s = h.shift(f === 'A' ? -1 : 1, 0);                                                        // der Wecker zittert
+    for (let y = 0; y < PXN; y++) for (let x = 0; x < PXN; x++) if (s.a[y][x]) g.a[y][x] = s.a[y][x];
+  },
+  bustTax(g, f) {
+    pxTorso(g, { bow: true }); pxHead(g, 6.2);
+    g.r(7, 0, 10, 5); g.r(7, 3, 10, 1, 2); g.r(4, 5, 16, 1);                                       // Zylinder
+    pxEyes(g, f, 'dot', 8);
+    g.r(14, 7, 4, 4, f === 'S' ? 0 : 1); g.r(15, 8, 2, 2, 2); g.p(17, 11); g.p(18, 13); g.p(18, 15);  // Monokel mit Kette
+    g.r(8, 11, 8, 1); g.p(7, 12); g.p(16, 12); g.p(7, 11); g.p(16, 11);                           // Schnurrbart
+    if (f === 'S') pxMouth(g, f, null, 13); else g.r(11, 13, 2, 1);
+    g.e(19, 21, 2.4, 2.4, 2); g.p(19, 21, 1);                                                      // Münze
+  }
 };
-const bodyShape = (fill) => '<path d="M8 100 Q10 74 32 70 L68 70 Q90 74 92 100Z" fill="' + fill + '" ' + OLN + '/>';
-const shirtV = '<path d="M40 71 L50 92 L60 71Z" fill="#fff" ' + OLN + '/>';
-const nose = '<path d="M50 55 Q55 62 49 64" stroke="#b9805a" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
 
-const ICON_CHAR = {
-  // ---- Sleepy Sam: Dealer mit grünem Schirm, halb im Schlaf ----
-  sleepySam:
-    bodyShape('#2c2f3a') + shirtV + '<path d="M43 76 L50 79 L57 76 L57 84 L50 81 L43 84Z" fill="#d6223a" ' + OLN + '/>' +
-    headShape(SKIN) +
-    '<path d="M27 42 Q29 24 50 23 Q71 24 73 42 Q62 34 50 35 Q38 34 27 42Z" fill="#6b4a2b" ' + OLN + '/>' +
-    '<path d="M23 36 Q50 16 77 36 L77 45 Q50 27 23 45Z" fill="#2fa860" ' + OLN + '/><path d="M32 36 Q50 24 68 36" stroke="#a5f2c6" stroke-width="2" fill="none" opacity=".8"/>' +
-    '<path d="M34 49 Q41 47 47 50 M53 50 Q59 47 66 49" stroke="' + OL + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
-    '<path class="closed" d="M34 55 Q41 61 48 55 M52 55 Q59 61 66 55" fill="none" stroke="' + OL + '" stroke-width="3" stroke-linecap="round"/>' +
-    '<g class="wide"><circle cx="41" cy="54" r="8" fill="#fff" ' + OLN + '/><circle cx="59" cy="54" r="8" fill="#fff" ' + OLN + '/><circle cx="41" cy="55" r="2.8" fill="' + OL + '"/><circle cx="59" cy="55" r="2.8" fill="' + OL + '"/></g>' +
-    '<path d="M35 62 Q41 66 47 62 M53 62 Q59 66 65 62" stroke="#a97c9a" stroke-width="2" fill="none" stroke-linecap="round"/>' + nose +
-    '<ellipse class="mouth" cx="50" cy="70" rx="5" ry="4" fill="#7a2a2a" ' + OLN + '/>' +
-    '<path d="M57 72 Q54 80 57 82 Q60 80 57 72Z" fill="#9fdcff" stroke="' + OL + '" stroke-width="1.6"/>' +
-    '<text x="74" y="22" font-size="15" font-weight="700" fill="#cfe9ff" stroke="' + OL + '" stroke-width=".9" font-family="Menlo,Consolas,monospace">z</text>' +
-    '<text x="85" y="12" font-size="10" font-weight="700" fill="#cfe9ff" stroke="' + OL + '" stroke-width=".7" font-family="Menlo,Consolas,monospace">z</text>',
-
-  // ---- Slick Vic: lila Anzug, Schmalzlocke, verspiegelte Brille, Zigarre ----
-  slickVic:
-    bodyShape('#5a2a8a') + shirtV + '<path d="M47 76 L53 76 L55 94 L50 98 L45 94Z" fill="#ff3b6b" ' + OLN + '/>' +
-    '<path d="M34 76 Q50 94 66 76" stroke="#ffd54a" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
-    '<path d="M16 100 L30 80 L36 76 L32 100Z M84 100 L70 80 L64 76 L68 100Z" fill="#6d36a3" ' + OLN + '/>' +
-    headShape('#e9b98f') +
-    '<path d="M25 46 Q21 17 50 17 Q79 17 75 46 Q70 29 52 29 Q38 29 25 46Z" fill="#14121a" ' + OLN + '/>' +
-    '<path d="M33 25 Q48 19 63 25" stroke="#6a6785" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-    '<path class="brows" d="M31 45 Q40 41 47 45 M53 45 Q60 41 69 45" stroke="' + OL + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
-    '<path class="shades" d="M27 49 H73 L71 57 Q67 66 58 64 Q52 62 51 56 H49 Q48 62 42 64 Q33 66 29 57Z" fill="#0b0b12" ' + OLN + '/>' +
-    '<path d="M33 52 L40 52 M56 52 L63 52" stroke="#6fe6ff" stroke-width="2.4" stroke-linecap="round"/>' + nose +
-    '<path class="mouth" d="M38 71 Q50 77 64 67" stroke="' + OL + '" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M52 73 L55 71" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>' +
-    '<path d="M62 71 L86 62" stroke="#7a431a" stroke-width="6" stroke-linecap="round"/><path d="M62 71 L86 62" stroke="#a8622a" stroke-width="3" stroke-linecap="round"/>' +
-    '<circle cx="88" cy="61" r="3.4" fill="#ff7a2a" stroke="' + OL + '" stroke-width="1.4"/><path d="M90 53 Q95 46 89 40" stroke="#cfd8d4" stroke-width="2" fill="none" opacity=".75" stroke-linecap="round"/>',
-
-  // ---- The Shaved Ace: Glatze, Schnurrbart, Narbe, Ass in der Tasche ----
-  acesCountOne:
-    bodyShape('#a8192e') + shirtV + '<rect x="64" y="78" width="15" height="21" rx="2.5" fill="#fff" transform="rotate(12 71 88)" ' + OLN + '/>' +
-    '<text x="71" y="94" font-size="13" font-weight="700" fill="#d6223a" text-anchor="middle" transform="rotate(12 71 88)" font-family="Georgia,serif">A</text>' +
-    headShape('#e8b88c') +
-    '<path d="M37 27 Q46 21 58 24" stroke="#fff" stroke-width="3.4" fill="none" opacity=".75" stroke-linecap="round"/>' +
-    '<path d="M61 34 L69 52" stroke="#c0484a" stroke-width="2.6" stroke-linecap="round"/><path d="M60 40 L66 38 M63 46 L69 44" stroke="#c0484a" stroke-width="1.8" stroke-linecap="round"/>' +
-    '<g class="eyes"><ellipse cx="41" cy="50" rx="5.5" ry="4.4" fill="#fff" ' + OLN + '/><ellipse cx="59" cy="50" rx="5.5" ry="4.4" fill="#fff" ' + OLN + '/><circle cx="42" cy="51" r="2.2" fill="' + OL + '"/><circle cx="58" cy="51" r="2.2" fill="' + OL + '"/></g>' +
-    '<path class="brows" d="M31 41 L48 47 M69 41 L52 47" stroke="' + OL + '" stroke-width="4.2" stroke-linecap="round"/>' +
-    '<path d="M50 62 Q42 55 29 59 Q23 64 28 71 Q36 62 50 66 Q64 62 72 71 Q77 64 71 59 Q58 55 50 62Z" fill="#2b1a10" ' + OLN + '/>' +
-    '<path class="mouth" d="M43 73 Q50 77 57 73" stroke="' + OL + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
-
-  // ---- The Hungry Dealer: Kochmütze, riesiges Maul, Lätzchen, Gabel ----
-  dealerHitsSoft18:
-    bodyShape('#efe9da') + '<path d="M37 71 L63 71 L57 93 L43 93Z" fill="#e0344a" ' + OLN + '/><path d="M42 78 H58 M44 85 H56" stroke="#fff" stroke-width="2.4" opacity=".7"/>' +
-    headShape('#f0b98f', 27) +
-    '<path d="M29 36 Q20 14 37 14 Q43 5 54 11 Q71 7 71 22 Q80 34 71 37Z" fill="#fff" ' + OLN + '/><rect x="29" y="34" width="42" height="8" rx="3" fill="#e9e9e9" ' + OLN + '/>' +
-    '<g class="eyes"><circle cx="40" cy="51" r="6.5" fill="#fff" ' + OLN + '/><circle cx="60" cy="51" r="6.5" fill="#fff" ' + OLN + '/><circle cx="41" cy="52" r="2.8" fill="' + OL + '"/><circle cx="59" cy="52" r="2.8" fill="' + OL + '"/><circle cx="39.6" cy="49.6" r="1.3" fill="#fff"/><circle cx="57.6" cy="49.6" r="1.3" fill="#fff"/></g>' +
-    '<path class="brows" d="M33 43 Q40 38 47 43 M53 43 Q60 38 67 43" stroke="' + OL + '" stroke-width="2.8" fill="none" stroke-linecap="round"/>' +
-    '<g class="mouth"><path d="M30 61 Q50 96 70 61 Q50 55 30 61Z" fill="#7a1822" ' + OLN + '/><path d="M40 77 Q50 68 60 77 Q50 87 40 77Z" fill="#ff6b7d"/><path d="M34 62 Q50 58 66 62 L64 67 Q50 63 36 67Z" fill="#fff"/></g>' +
-    '<path d="M72 68 Q68 78 72 80 Q76 78 72 68Z" fill="#9fdcff" stroke="' + OL + '" stroke-width="1.6"/>' +
-    '<path d="M86 50 V86 M82 50 V62 M90 50 V62 M82 62 Q86 67 90 62" stroke="#d3dae2" stroke-width="3" fill="none" stroke-linecap="round"/>',
-
-  // ---- The Iconoclast: Bauhelm, Bart, riesiger Hammer ----
-  noFaceCards:
-    '<path d="M84 22 L88 74" stroke="' + OL + '" stroke-width="9" stroke-linecap="round"/><path d="M84 22 L88 74" stroke="#8a5a2a" stroke-width="5" stroke-linecap="round"/>' +
-    '<rect x="68" y="4" width="32" height="18" rx="3" fill="#8a93a8" transform="rotate(-10 84 13)" ' + OLN + '/><path d="M74 8 L96 4" stroke="#cdd3e0" stroke-width="2.6" stroke-linecap="round"/>' +
-    bodyShape('#46506a') + '<path d="M36 72 V100 M64 72 V100" stroke="#2a3146" stroke-width="7"/><circle cx="36" cy="80" r="2.6" fill="#ffc21a"/><circle cx="64" cy="80" r="2.6" fill="#ffc21a"/>' +
-    headShape('#e0a070') +
-    '<path d="M26 56 Q26 84 50 88 Q74 84 74 56 Q66 67 50 67 Q34 67 26 56Z" fill="#5a3320" ' + OLN + '/>' +
-    '<path d="M24 37 Q26 14 50 14 Q74 14 76 37Z" fill="#ffc21a" ' + OLN + '/><rect x="19" y="34" width="62" height="8" rx="3.5" fill="#f0a800" ' + OLN + '/><path d="M50 14 V34" stroke="' + OL + '" stroke-width="2.4"/>' +
-    '<g class="eyes"><ellipse cx="41" cy="52" rx="4.8" ry="3.8" fill="#fff" ' + OLN + '/><ellipse cx="59" cy="52" rx="4.8" ry="3.8" fill="#fff" ' + OLN + '/><circle cx="42" cy="52.6" r="2" fill="' + OL + '"/><circle cx="58" cy="52.6" r="2" fill="' + OL + '"/></g>' +
-    '<path class="brows" d="M31 45 L48 50 M69 45 L52 50" stroke="' + OL + '" stroke-width="4.6" stroke-linecap="round"/>' +
-    '<path class="mouth" d="M42 73 Q50 78 58 73" stroke="#f6dcc0" stroke-width="3" fill="none" stroke-linecap="round"/>',
-
-  // ---- The Blindfold: Augenbinde, wissendes Lächeln ----
-  faceDownInitial:
-    bodyShape('#1f4b6b') + shirtV + '<path d="M36 72 Q50 82 64 72 L62 78 Q50 88 38 78Z" fill="#c9d4ee" ' + OLN + '/>' +
-    headShape('#e8b88c') +
-    '<path d="M26 45 Q26 22 50 22 Q74 22 74 45 Q64 34 50 34 Q36 34 26 45Z" fill="#7d8aa8" ' + OLN + '/>' +
-    '<path class="band" d="M23 44 Q50 38 77 44 L77 58 Q50 53 23 58Z" fill="#17171f" ' + OLN + '/><path d="M30 49 Q50 44 70 49" stroke="#46465c" stroke-width="2.2" fill="none"/>' +
-    '<circle cx="77" cy="51" r="5.5" fill="#17171f" ' + OLN + '/><path d="M80 49 L93 40 M80 54 L94 62" stroke="#17171f" stroke-width="5" stroke-linecap="round"/>' + nose +
-    '<path class="mouth" d="M40 72 Q52 80 63 70" stroke="' + OL + '" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-    '<text x="14" y="30" font-size="20" font-weight="700" fill="#8fa6ff" stroke="' + OL + '" stroke-width=".8" font-family="Menlo,Consolas,monospace">?</text>',
-
-  // ---- The Time Limit: wütender Wecker ----
-  shortHanded:
-    '<path d="M34 86 L27 99 M66 86 L73 99" stroke="' + OL + '" stroke-width="6" stroke-linecap="round"/><path d="M22 99 H32 M68 99 H78" stroke="' + OL + '" stroke-width="5" stroke-linecap="round"/>' +
-    '<path d="M50 8 V20" stroke="' + OL + '" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="8" r="4.5" fill="#ffd23a" ' + OLN + '/>' +
-    '<circle cx="22" cy="26" r="12" fill="#ffd23a" ' + OLN + '/><circle cx="78" cy="26" r="12" fill="#ffd23a" ' + OLN + '/><path d="M14 22 Q18 16 24 17 M70 17 Q76 16 80 22" stroke="#fff" stroke-width="2" fill="none" opacity=".7"/>' +
-    '<circle cx="50" cy="56" r="35" fill="#e43d3d" ' + OLN + '/><circle cx="50" cy="56" r="27" fill="#fff6dc" ' + OLN + '/>' +
-    '<path d="M50 56 V36 M50 56 L65 63" stroke="#cdb482" stroke-width="3.4" stroke-linecap="round"/><path d="M50 31 V36 M50 76 V81 M25 56 H30 M70 56 H75" stroke="' + OL + '" stroke-width="2.4" stroke-linecap="round"/>' +
-    '<g class="eyes"><ellipse cx="41" cy="52" rx="5" ry="5.6" fill="#fff" ' + OLN + '/><ellipse cx="59" cy="52" rx="5" ry="5.6" fill="#fff" ' + OLN + '/><circle cx="42" cy="53" r="2.4" fill="' + OL + '"/><circle cx="58" cy="53" r="2.4" fill="' + OL + '"/></g>' +
-    '<path class="brows" d="M32 43 L47 48 M68 43 L53 48" stroke="' + OL + '" stroke-width="4.2" stroke-linecap="round"/>' +
-    '<g class="mouth"><path d="M38 68 Q50 62 62 68 Q50 79 38 68Z" fill="#7a1822" ' + OLN + '/><path d="M42 68 H58" stroke="#fff" stroke-width="3"/></g>',
-
-  // ---- The Collector: Zylinder, Monokel, Dollar-Augen ----
-  bustTax:
-    bodyShape('#14281d') + shirtV + '<path d="M43 76 L50 79 L57 76 L57 84 L50 81 L43 84Z" fill="#2cd01c" ' + OLN + '/>' +
-    '<circle cx="80" cy="85" r="9" fill="#ffd54a" ' + OLN + '/><text x="80" y="89.5" font-size="12" font-weight="700" fill="#8a5a00" text-anchor="middle" font-family="Menlo,Consolas,monospace">$</text>' +
-    headShape('#efc9a0', 23) +
-    '<rect x="31" y="3" width="38" height="28" rx="3" fill="#1b1b1b" ' + OLN + '/><rect x="31" y="22" width="38" height="7" fill="#2cd01c" ' + OLN + '/><ellipse cx="50" cy="32" rx="30" ry="6" fill="#1b1b1b" ' + OLN + '/>' +
-    '<g class="eyes"><circle cx="41" cy="51" r="6.6" fill="#fff" ' + OLN + '/><circle cx="59" cy="51" r="6.6" fill="#fff" ' + OLN + '/>' +
-    '<text x="41" y="55.4" font-size="10.5" font-weight="700" fill="#1c8a10" text-anchor="middle" font-family="Menlo,Consolas,monospace">$</text><text x="59" y="55.4" font-size="10.5" font-weight="700" fill="#1c8a10" text-anchor="middle" font-family="Menlo,Consolas,monospace">$</text></g>' +
-    '<circle cx="59" cy="51" r="10" fill="none" stroke="#ffd54a" stroke-width="2.6"/><path d="M68 57 Q80 62 76 74" stroke="#ffd54a" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
-    '<path class="brows" d="M33 42 Q41 38 47 42 M53 42 Q59 38 67 42" stroke="' + OL + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>' + nose +
-    '<path d="M50 63 Q44 59 33 61 Q29 67 36 67 Q44 63 50 67 Q56 63 64 67 Q71 67 67 61 Q56 59 50 63Z" fill="#3a2a1a" ' + OLN + '/>' +
-    '<path class="mouth" d="M44 72 Q50 76 56 72" stroke="' + OL + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
-};
+// Alle Figuren vorab in SVG-Teile umwandeln: drei Bilder A, B, S
+const ICON_CHAR = {};
+for (const id of Object.keys(PIX_DEFS)) {
+  const frames = ['A', 'B', 'S'].map(f => {
+    let g = new PixGrid();
+    PIX_DEFS[id](g, f);
+    if (f === 'B' && !['tipsyTom', 'shortHanded', 'rustyRobot'].includes(id)) g = g.shift(0, 1);   // sanftes Wippen
+    return '<g class="fr f' + f.toLowerCase() + '">' + g.svg() + '</g>';
+  });
+  ICON_CHAR[id] = frames.join('');
+}

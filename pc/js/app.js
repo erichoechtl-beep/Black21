@@ -200,7 +200,13 @@ const MASCOT_LINES = {
   noFaceCards: ['No kings here!', 'Cards break. So do you.'],
   faceDownInitial: ['I can feel your hand.', 'Who needs eyes?'],
   shortHanded: ['Tick tock! Hurry up!', 'Time is money!'],
-  bustTax: ['Taxes, darling.', 'Pay up, pay up!']
+  bustTax: ['Taxes, darling.', 'Pay up, pay up!'],
+  nervousNed: ['Oh! Hi! Please be gentle.', 'I am not sweating. You are.'],
+  grannyGail: ['Cookie, dear?', 'Sit down, sweetie.'],
+  tipsyTom: ['Hic! Is this the bar?', 'Cards! Yay!'],
+  cowboyCal: ['Howdy, partner.', 'Care for a round?'],
+  ladyLuck: ['Luck is on my side.', 'Care to gamble, darling?'],
+  rustyRobot: ['BEEP. HELLO, HUMAN.', 'ODDS: NOT IN YOUR FAVOR.']
 };
 const MENU_ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
@@ -434,7 +440,7 @@ function updateGoal(E) {
 // Wo bin ich? "TABLE 2/8", die drei Gegner dieses Tisches als Weg, und Punkte für die Hände der Runde
 function updateRoundDisplay(E, blind, inRound) {
   const nodes = [0, 1, 2].map(i => {
-    const id = i === 2 ? E.run.bossForAnte : OPPONENTS[i].id;
+    const id = i === 2 ? E.run.bossForAnte : oppIdFor(blind.ante, i);
     const state = i < blind.kind ? 'done' : i === blind.kind ? 'now' : 'next';
     return '<div class="node ' + state + (i === 2 ? ' boss' : '') + '">' + icon(id, 22) + (state === 'done' ? '<span class="tick">&#10003;</span>' : '') + '</div>';
   }).join('<span class="link"></span>');
@@ -444,11 +450,16 @@ function updateRoundDisplay(E, blind, inRound) {
 
   let pips = '';
   if (inRound) {
-    const total = E.round.totalHands;
-    const current = Math.max(1, Math.min(total, total - E.round.handsLeft));
-    pips = '<span class="lbl">HAND</span>';
-    for (let i = 1; i <= total; i++) pips += '<span class="pip ' + (i < current ? 'done' : i === current ? 'now' : '') + '"></span>';
-    pips += '<span class="lbl">' + current + '/' + total + '</span>';
+    const total = E.round.totalHands, log = E.round.log || [];
+    // Das Ergebnis der gerade gespielten Hand erst zeigen, wenn die Punkte gezählt sind
+    const shown = (E.phase === 'handResult' && App.tallyDoneKey !== tallyKeyFor(E)) ? Math.max(0, log.length - 1) : log.length;
+    const current = shown;
+    for (let i = 0; i < total; i++) {
+      if (i < shown) {
+        const o = log[i];
+        pips += '<span class="hc hf ' + o + (i === shown - 1 ? ' flip' : '') + '">' + (o === 'win' ? '✓' : o === 'lose' ? '✗' : '=') + '</span>';
+      } else pips += '<span class="hc hb' + (i === current ? ' now' : '') + '"></span>';
+    }
   }
   const pipEl = $('#hud-pips');
   if (pipEl.dataset.sig !== pips) { pipEl.innerHTML = pips; pipEl.dataset.sig = pips; }
@@ -595,6 +606,11 @@ function updateTable(E) {
     tot.className = 'hand-total ' + (!hid && hv.isBust ? 'bust' : !hid && hv.total === 21 ? 'twentyone' : active ? 'green' : 'amber');
   });
 
+  document.querySelectorAll('#player-hands .card').forEach(el => {
+    const card = r.playerHands.flatMap(h => h.cards).find(c => c.id === el.dataset.id);
+    el.classList.toggle('lucky', !!card && E.isRoulette(card) && !el.classList.contains('down'));
+  });
+
   // Blackjack beim Austeilen? Dann gibt es eine kleine Feier.
   const natural = r.playerHands.find(h => !h.isFromSplit && E.value(h).isTwentyOneInTwo);
   if (natural && !App.bjSeen.has(natural.id)) { App.bjSeen.add(natural.id); celebrateBlackjack(); }
@@ -616,7 +632,9 @@ function loadoutHtml(E) {
   let reels = '', chips = '';
   for (const c of E.run.charms) reels += '<div class="mreel ' + CHARMS[c.kind].rarity + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 20) + '</div>';
   for (const it of E.run.consumables) chips += itemChipHtml(it.kind, (App.pendingTrick === it.uid ? ' armed' : '') + (E.canUse(it) ? '' : ' off'), 'use-cheater', it.uid);
-  return '<div class="loadout"><div class="mini-reels">' + reels + '</div><div class="sp"></div><div class="chips-row">' + chips + '</div></div><div class="inspect">' + esc(App.inspected) + '</div>';
+  const rc = E.round.roulette;
+  const rtag = rc && E.run.charms.some(c => c.kind === 'rouletteTable') ? '<div class="rtag">' + icon('rouletteTable', 20) + '<span class="rc ' + (rc.red ? 'red' : '') + '">' + rankLabel(rc.rank) + '</span>' + (rc.red ? 'RED' : 'BLACK') + ' +8</div>' : '';
+  return '<div class="loadout"><div class="mini-reels">' + reels + '</div>' + rtag + '<div class="sp"></div><div class="chips-row">' + chips + '</div></div><div class="inspect">' + esc(App.inspected) + '</div>';
 }
 
 // Der Charm-Spielautomat (Shop und Blind-Auswahl)
@@ -696,7 +714,7 @@ function renderPreview(E) {
   const v = E.value(hand);
   const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
   const b = scoreHand({ hand, value: v, outcome: 'win', isNatural: natural, charms: E.run.charms, bankroll: E.run.bankroll, payoutBoost: E.round.payoutBoost,
-    luckMult: E.round.luckMult, hotChips: E.round.hotChips, streak: E.run.streak || 0 });
+    luckMult: E.round.luckMult, hotChips: E.round.hotChips, roulette: E.round.roulette, streak: E.run.streak || 0 });
   chips.textContent = Math.trunc(b.chips);
   mult.textContent = fmtNum(b.mult * b.factor);
   if (v.isBust) { head.textContent = 'BUST'; head.className = 't-head red'; }
@@ -831,13 +849,12 @@ function blindHtml(E) {
   const ahead = b.boss ? '' :
     '<div class="ahead">' + icon(E.run.bossForAnte, 30) + '<span>BOSS: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
   return '<div class="col blindsel" style="flex:1;gap:10px;padding-bottom:6px">' +
-    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '" data-id="' + opp.id + '">' + icon(opp.id, 140) + '</div></div>' +
-    '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
+    '<div class="blind-name"><div class="kind">' + (opp.isBoss ? 'BOSS' : kind.name) + '</div><div class="nm ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div></div>' +
     '<div class="bubble">' + esc(opp.intro) + '</div>' +
     '<div class="goalrow"><div class="goal-chip"><span>GOAL</span><b>' + b.target + '</b></div><div class="perks">' +
     perk('<i class="pk-s">$</i>', kind.reward) + perk(HAND_ICO, hands) + perk(icon('freeRerolls', 18), E.discardsPerRound) + '</div></div>' +
     ahead + '<div class="spacer"></div>' +
-    (E.run.charms.length ? slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') : (E.run.consumables.length ? itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') : '')) +
+    slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') +
     '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
     '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP') + '</button></div>';
 }
@@ -856,7 +873,7 @@ function cashoutHtml(E) {
     '<div class="panel amber">' + line('REWARD', p.blindReward) + (p.handsBonus ? line('SPARE HANDS', p.handsBonus) : '') +
     (p.interest ? line('INTEREST', p.interest) : '') + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
     '<div class="spacer"></div>' +
-    (spun ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'LUCKY SPIN</button>') +
+    (spun || !p.spinEarned ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'LUCKY SPIN</button>') +
     '<button class="tbtn big green" data-act="cash-out">CASH OUT</button>' +
     (E.canBank ? '<button class="tbtn dimmed" data-act="bank">BANK ' + E.bankValue + ' PTS &amp; QUIT</button>' : '') + '</div>';
 }

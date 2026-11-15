@@ -73,7 +73,7 @@ class GameEngine {
     return {
       blind, rules: rulesFor(blind.boss), drawPile: [], discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0, handsLeft: 0, discardsLeft: 0,
-      resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null
+      resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null, roulette: null, log: []
     };
   }
 
@@ -121,7 +121,9 @@ class GameEngine {
       dealerCards: [], dealerHoleRevealed: false, score: 0,
       handsLeft: Math.max(1, this.handsPerRound - rules.handsPenalty),
       discardsLeft: this.discardsPerRound, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1,
-      luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null
+      luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null, log: [],
+      // Roulette: jede Runde eine neue Glückskarte (Zahl + Farbe)
+      roulette: { rank: this.rng.int(13) + 1, red: this.rng.chance(0.5) }
     };
     this.dealHand();
     this.emit();
@@ -246,7 +248,7 @@ class GameEngine {
       const outcome = resolveOutcome(v, natural, dv, dealerNatural);
       const breakdown = scoreHand({
         hand, value: v, outcome, isNatural: natural, charms: this.run.charms,
-        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, streak: streakBefore
+        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, roulette: r.roulette, streak: streakBefore
       });
       // Knapp daneben: genau 1 Punkt zu wenig, oder Bust mit 22
       if (!nearMiss) {
@@ -268,6 +270,7 @@ class GameEngine {
     r.resolved = results;
     // Siegesserie: jeder Sieg erhöht sie, jede Niederlage (Lose/Bust) setzt sie auf 0, Push hält sie
     const anyWin = results.some(x => x.outcome === 'win'), anyLoss = results.some(x => x.outcome === 'lose' || x.outcome === 'bust');
+    r.log.push(anyWin ? 'win' : anyLoss ? 'lose' : 'push');
     r.streakBefore = streakBefore;
     r.nearMiss = anyWin ? null : nearMiss;
     if (anyLoss) { this.run.streak = 0; r.streakEvent = streakBefore >= 2 ? 'lost' : ''; }
@@ -312,7 +315,9 @@ class GameEngine {
     const reward = BLIND_KINDS[this.round.blind.kind].reward;
     const handsBonus = Math.max(0, this.round.handsLeft);
     const interest = Math.min(Math.floor(this.run.bankroll / Tuning.interestStep), Tuning.interestCap);
-    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest };
+    // Das Glücksrad gibt es nicht immer: nach jedem Boss sicher, sonst nur manchmal
+    const spinEarned = this.round.blind.kind === 2 || this.rng.chance(0.3);
+    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, spinEarned };
     this.fb('win');
   }
 
@@ -404,7 +409,7 @@ class GameEngine {
 
   // ----- Glücksrad nach einem geschafften Blind -----
   spinWheel() {
-    if (this.phase !== 'roundCleared' || !this.cashOut || this.cashOut.spin) return null;
+    if (this.phase !== 'roundCleared' || !this.cashOut || this.cashOut.spin || !this.cashOut.spinEarned) return null;
     let roll = this.rng.int(WHEEL.reduce((a, s) => a + s.weight, 0)), idx = 0;
     for (; idx < WHEEL.length - 1; idx++) { if (roll < WHEEL[idx].weight) break; roll -= WHEEL[idx].weight; }
     const seg = WHEEL[idx], run = this.run, co = this.cashOut;
@@ -531,6 +536,11 @@ class GameEngine {
   }
 
   // ===== Cheater-Karten =====
+  // Ist das die Roulette-Karte dieser Runde (und besitzt der Spieler den Roulette Table)?
+  isRoulette(card) {
+    const rc = this.round.roulette;
+    return !!rc && this.run.charms.some(c => c.kind === 'rouletteTable') && card.rank === rc.rank && isRedSuit(card.suit) === rc.red;
+  }
   canUse(item) {
     if (TERMINAL.includes(this.phase)) return false;
     if (CHEATERS[item.kind].inRoundOnly) return this.phase === 'playerTurn' && !!this.activeHand && !this.activeHand.isStanding;
