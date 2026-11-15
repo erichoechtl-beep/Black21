@@ -1,7 +1,7 @@
 'use strict';
 /* engine.js: Spiel-Engine (entspricht GameEngine.swift + GameEngine+Items.swift) */
 
-function newRunState(deckId, charmPool, seed) {
+function newRunState(deckId, charmPool, seed, bonusCash) {
   const rng = new RNG(seed);
   const deck = DECKS[deckId];
   const run = {
@@ -9,7 +9,7 @@ function newRunState(deckId, charmPool, seed) {
     ante: 1,
     blindKind: 0,
     bossForAnte: rng.pick(BOSS_IDS),
-    bankroll: Tuning.startingBankroll + deck.bonusBankroll,
+    bankroll: Tuning.startingBankroll + deck.bonusBankroll + (bonusCash || 0),
     deck: buildDeck(deckId),
     charms: [],
     consumables: [],
@@ -49,10 +49,10 @@ class GameEngine {
     if (this.phase === 'shop' && !run.shop) this.generateShop();
   }
 
-  static create(deckId, unlockedCharms, seed, hooks) {
+  static create(deckId, unlockedCharms, seed, hooks, bonusCash) {
     const pool = CHARM_IDS.filter(id => unlockedCharms.includes(id));
     const s = seed === undefined ? Math.floor(Math.random() * 4294967296) : seed;
-    return new GameEngine(newRunState(deckId, pool, s), hooks);
+    return new GameEngine(newRunState(deckId, pool, s, bonusCash), hooks);
   }
 
   // ----- Hilfen -----
@@ -73,7 +73,7 @@ class GameEngine {
     return {
       blind, rules: rulesFor(blind.boss), drawPile: [], discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0, handsLeft: 0, discardsLeft: 0,
-      resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, streakEvent: '', streakBefore: 0, nearMiss: null
+      resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null
     };
   }
 
@@ -121,7 +121,7 @@ class GameEngine {
       dealerCards: [], dealerHoleRevealed: false, score: 0,
       handsLeft: Math.max(1, this.handsPerRound - rules.handsPenalty),
       discardsLeft: this.discardsPerRound, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1,
-      luckMult: 0, streakEvent: '', streakBefore: 0, nearMiss: null
+      luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null
     };
     this.dealHand();
     this.emit();
@@ -237,13 +237,16 @@ class GameEngine {
     let handTotal = 0, cash = 0, fees = 0;
     const streakBefore = this.run.streak || 0;
     let nearMiss = null;
+    // Spielautomat: einmal pro Hand gewürfelt (nur wenn man ihn besitzt)
+    const slotHit = this.run.charms.some(c => c.kind === 'slotMachine') && this.rng.chance(0.25);
+    r.slotHit = slotHit;
     for (const hand of r.playerHands) {
       const v = this.value(hand);
       const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
       const outcome = resolveOutcome(v, natural, dv, dealerNatural);
       const breakdown = scoreHand({
         hand, value: v, outcome, isNatural: natural, charms: this.run.charms,
-        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, streak: streakBefore
+        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, streak: streakBefore
       });
       // Knapp daneben: genau 1 Punkt zu wenig, oder Bust mit 22
       if (!nearMiss) {
@@ -259,6 +262,7 @@ class GameEngine {
     }
     r.payoutBoost = 1;
     r.luckMult = 0;
+    r.hotChips = 0;
     r.score += handTotal;
     r.lastHandScore = handTotal;
     r.resolved = results;
@@ -458,10 +462,13 @@ class GameEngine {
     const offers = [];
     const owned = new Set(run.charms.map(c => c.kind));
     const pool = this.rng.shuffle(run.charmPool.filter(id => !owned.has(id)));
+    // VIP-Karte: alles im Shop kostet $1 weniger (mindestens $1)
+    const vip = owned.has('vipCard') ? 1 : 0;
+    const cost = p => Math.max(1, p - vip);
     // Einfacher Shop: zwei Charms (bleiben) und ein Item (einmalig benutzbar)
-    for (const kind of pool.slice(0, 2)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: CHARMS[kind].price, isSold: false });
+    for (const kind of pool.slice(0, 2)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: cost(CHARMS[kind].price), isSold: false });
     const cheater = this.rng.pick(CHEATER_IDS);
-    offers.push({ id: newId(), item: { type: 'cheater', kind: cheater }, price: CHEATERS[cheater].price, isSold: false });
+    offers.push({ id: newId(), item: { type: 'cheater', kind: cheater }, price: cost(CHEATERS[cheater].price), isSold: false });
     run.shop = { offers, rerollCost: rerollCost === undefined ? Tuning.rerollBase : rerollCost };
   }
 
@@ -536,7 +543,7 @@ class GameEngine {
     const item = run.consumables[idx];
     if (!this.canUse(item)) { this.fb('error'); return; }
     if (item.kind === 'loadTheDice') {
-      this.round.payoutBoost = 2;
+      this.round.payoutBoost *= 2;
     } else if (item.kind === 'extraHand') {
       this.round.handsLeft += 1; this.round.totalHands += 1;
     } else if (item.kind === 'freeRerolls') {
@@ -544,6 +551,16 @@ class GameEngine {
     } else if (item.kind === 'luckyDice') {
       this.lastRoll = this.rng.int(6) + 1;
       this.round.luckMult = this.lastRoll;
+    } else if (item.kind === 'hotChips') {
+      this.round.hotChips = (this.round.hotChips || 0) + 150;
+    } else if (item.kind === 'coinFlip') {
+      const heads = this.rng.chance(0.5);
+      this.lastFlip = heads;
+      if (heads) this.round.payoutBoost *= 3;
+    } else if (item.kind === 'scratchCard') {
+      const jackpot = this.rng.int(12) === 0;
+      this.lastScratch = jackpot ? 25 : this.rng.int(5);
+      run.bankroll += this.lastScratch;
     }
     run.consumables.splice(idx, 1);
     this.fb('coin');
@@ -556,7 +573,7 @@ class GameEngine {
 // ===== Meta-Fortschritt (entspricht MetaProgression.swift) =====
 function newMeta() {
   return {
-    points: 0,
+    points: 0, xp: 0,
     unlockedDecks: ['house'],
     unlockedCharms: CHARM_IDS.filter(id => CHARMS[id].unlockAnte === 0),
     discoveredCharms: [],
@@ -568,6 +585,12 @@ function metaApply(meta, summary) {
   const st = meta.stats;
   meta.points += summary.pointsEarned;
   // Rekord zählt auch verlorene Töpfe: so sieht man, wie knapp man an der Bestmarke war
+  // Casino-Rang: Erfahrung gibt es immer, auch bei Niederlage (Fortschritt ohne Frust)
+  const s0 = summary.stats;
+  summary.xpGain = s0.handsPlayed * 4 + s0.blindsCleared * 25 + s0.tablesCleared * 60 + (s0.bestStreak || 0) * 8 + (summary.won ? 200 : 0);
+  summary.rankBefore = rankInfo(meta.xp || 0);
+  meta.xp = (meta.xp || 0) + summary.xpGain;
+  summary.rankAfter = rankInfo(meta.xp);
   summary.recordBefore = st.bestPot || 0;
   summary.newRecord = summary.potReached > summary.recordBefore;
   st.bestPot = Math.max(st.bestPot || 0, summary.potReached);
@@ -597,7 +620,16 @@ function metaApply(meta, summary) {
 // ===== Speichern (localStorage statt Application Support) =====
 const Save = {
   loadMeta() {
-    try { const raw = localStorage.getItem('bjr_meta'); if (raw) return Object.assign(newMeta(), JSON.parse(raw)); } catch (e) { /* kaputt: neu anfangen */ }
+    try {
+      const raw = localStorage.getItem('bjr_meta');
+      if (raw) {
+        const m = Object.assign(newMeta(), JSON.parse(raw));
+        m.xp = m.xp || 0;
+        // Neue Charms, die schon freigeschaltet sein müssten (z.B. nach einem Update), sofort aufnehmen
+        for (const id of CHARM_IDS) if (!m.unlockedCharms.includes(id) && (m.stats.totalTablesCleared || 0) >= CHARMS[id].unlockAnte) m.unlockedCharms.push(id);
+        return m;
+      }
+    } catch (e) { /* kaputt: neu anfangen */ }
     return newMeta();
   },
   saveMeta(m) { try { localStorage.setItem('bjr_meta', JSON.stringify(m)); } catch (e) { /* ignorieren */ } },

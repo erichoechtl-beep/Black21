@@ -65,7 +65,55 @@ const ICON_48 = {
   // Reroll Pack: Kreispfeile
   freeRerolls:
     '<path d="M37 19 A14 14 0 0 0 11 20"/><path d="M38 9 V19 H28"/>' +
-    '<path d="M11 29 A14 14 0 0 0 37 28"/><path d="M10 39 V29 H20"/>'
+    '<path d="M11 29 A14 14 0 0 0 37 28"/><path d="M10 39 V29 H20"/>',
+
+  // ---- Casino ----
+  // Roulette Ball: Roulette-Kessel mit Kugel
+  rouletteBall:
+    '<circle cx="24" cy="24" r="18" ' + SOFT + '/><circle cx="24" cy="24" r="10"/>' +
+    '<path d="M24 6V14M24 34V42M6 24H14M34 24H42M11.3 11.3L17 17M31 31L36.7 36.7M36.7 11.3L31 17M17 31L11.3 36.7" stroke-width="1.8"/>' +
+    '<circle cx="24" cy="24" r="3" ' + SOLID + '/><circle cx="36" cy="12" r="3.4" ' + SOLID + '/>',
+  // Free Drink: Cocktailglas mit Olive und Strohhalm
+  freeDrink:
+    '<path d="M9 12 H39 L24 28 Z" ' + MID + '/><path d="M24 28 V41 M15 41 H33"/>' +
+    '<path d="M31 3 L24 19" stroke-width="2"/><circle cx="32" cy="8" r="3.6" ' + SOLID + '/>' +
+    '<path d="M13 16 H35" stroke-width="1.6" opacity=".7"/>',
+  // Jackpot Bell: goldene Glocke mit Glitzer
+  jackpotBell:
+    '<path d="M12 33 Q12 15 24 12 Q36 15 36 33 Z" ' + MID + '/><path d="M8 35 H40"/>' +
+    '<path d="M24 12 V7"/><circle cx="24" cy="40" r="3.4" ' + SOLID + '/>' +
+    '<path d="M41 6 V12 M38 9 H44 M6 8 V13 M3.5 10.5 H8.5" stroke-width="2"/>',
+  // Slot Machine: Automat mit drei Sieben und Hebel
+  slotMachine:
+    '<rect x="7" y="7" width="30" height="35" rx="4" ' + SOFT + '/><rect x="11" y="13" width="22" height="13" rx="2"/>' +
+    '<text x="15.5" y="23.5" font-size="9" ' + T_ATTR + '>7</text><text x="22" y="23.5" font-size="9" ' + T_ATTR + '>7</text><text x="28.5" y="23.5" font-size="9" ' + T_ATTR + '>7</text>' +
+    '<path d="M12 33 H32 M12 37 H22" stroke-width="1.8"/><path d="M41 12 V26"/><circle cx="41" cy="10" r="3.4" ' + SOLID + '/>',
+  // VIP Card: goldene Mitgliedskarte
+  vipCard:
+    '<rect x="4" y="11" width="40" height="27" rx="4" ' + SOFT + '/><path d="M4 18 H44" stroke-width="3"/>' +
+    '<text x="24" y="33" font-size="13" ' + T_ATTR + '>VIP</text>' +
+    '<path d="M38 5 V10 M35.5 7.5 H40.5" stroke-width="2"/>',
+  // Lucky Horseshoe: Hufeisen mit Nägeln
+  luckyHorseshoe:
+    '<path d="M13 8 V27 A11 11 0 0 0 35 27 V8" stroke-width="7" opacity=".65"/>' +
+    '<g stroke="none" fill="#050806"><circle cx="13" cy="14" r="1.6"/><circle cx="13" cy="21" r="1.6"/><circle cx="35" cy="14" r="1.6"/><circle cx="35" cy="21" r="1.6"/><circle cx="16.2" cy="31.5" r="1.6"/><circle cx="31.8" cy="31.5" r="1.6"/></g>' +
+    '<path d="M24 41 V46 M21.5 43.5 H26.5" stroke-width="2"/>',
+  // Scratch Card: Rubbellos mit freigerubbeltem Feld
+  scratchCard:
+    '<g transform="rotate(-8 24 24)"><rect x="7" y="9" width="34" height="30" rx="3" ' + SOFT + '/>' +
+    '<rect x="12" y="15" width="24" height="15" rx="2" ' + MID + '/>' +
+    '<text x="24" y="28" font-size="13" stroke="none" fill="#050806" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">$$</text>' +
+    '<path d="M12 35 H28" stroke-width="1.8"/></g><path d="M40 4 V10 M37 7 H43" stroke-width="2"/>',
+  // Hot Chips: Chipstapel mit Flamme
+  hotChips:
+    '<path d="M10 36 V31 M38 36 V31 M10 28 V23 M38 28 V23 M10 20 V15 M38 20 V15" stroke-width="2"/>' +
+    '<ellipse cx="24" cy="36" rx="14" ry="5" ' + SOFT + '/><ellipse cx="24" cy="28" rx="14" ry="5" ' + SOFT + '/><ellipse cx="24" cy="20" rx="14" ry="5" ' + MID + '/>' +
+    '<path d="M20 20 H28" stroke-width="1.8"/><path d="M24 3 Q15 9 24 13 Q33 9 24 3Z" ' + SOLID + ' opacity=".85"/>',
+  // Coin Flip: Münze im Wurf
+  coinFlip:
+    '<circle cx="24" cy="27" r="15" ' + SOFT + '/><circle cx="24" cy="27" r="10" stroke-width="1.8"/>' +
+    '<text x="24" y="32" font-size="14" ' + T_ATTR + '>$</text>' +
+    '<path d="M24 2 V7 M13 5 L15.5 9 M35 5 L32.5 9" stroke-width="2"/>'
 };
 
 // ---------- Gesichter für Bosse & Gegner (Box 64x64) ----------
@@ -75,7 +123,8 @@ const ICON_64 = {
   sleepySam:
     FACE +
     '<path d="M16 24 Q32 8 48 24" ' + MID + '/>' +                       // Dealer-Käppi
-    '<path d="M20 36 q4 3 8 0 M36 36 q4 3 8 0"/>' +                     // halb geschlossene Augen
+    '<path class="closed" d="M20 36 q4 3 8 0 M36 36 q4 3 8 0"/>' +      // halb geschlossene Augen
+    '<g class="wide"><circle cx="24" cy="35" r="5" fill="#050806" stroke-width="1.6"/><circle cx="40" cy="35" r="5" fill="#050806" stroke-width="1.6"/><circle cx="24" cy="35" r="1.8" ' + SOLID + '/><circle cx="40" cy="35" r="1.8" ' + SOLID + '/></g>' +
     '<path d="M26 47 q6 3 12 0"/>' +
     '<path d="M43 44 Q39 52 43 54 Q47 52 43 44Z" ' + SOLID + ' opacity=".8"/>' + // Sabber
     '<text x="52" y="16" font-size="11" ' + T_ATTR + '>z</text><text x="58" y="9" font-size="8" ' + T_ATTR + '>z</text>',
@@ -83,25 +132,25 @@ const ICON_64 = {
   slickVic:
     FACE +
     '<path d="M13 30 Q16 8 32 8 Q48 8 51 30 Q40 20 32 21 Q22 20 13 30Z" ' + MID + '/>' + // Schmalzlocke
-    '<rect x="17" y="30" width="13" height="9" rx="3" ' + SOLID + '/><rect x="34" y="30" width="13" height="9" rx="3" ' + SOLID + '/>' +
-    '<path d="M30 34 H34"/>' +
-    '<path d="M22 48 Q32 55 42 46"/>' +
+    '<g class="eyes"><rect x="17" y="30" width="13" height="9" rx="3" ' + SOLID + '/><rect x="34" y="30" width="13" height="9" rx="3" ' + SOLID + '/>' +
+    '<path d="M30 34 H34"/></g>' +
+    '<path class="mouth" d="M22 48 Q32 55 42 46"/>' +
     '<path d="M40 49 L56 44" stroke-width="3"/><circle cx="57" cy="43.5" r="2" fill="#ff7a3a" stroke="none"/>', // Zigarre
   // Boss: The Shaved Ace (Asse zählen nur 1): Glatzkopf mit Schnurrbart und Rasierer
   acesCountOne:
     FACE +
     '<path d="M24 17 q8 -5 16 0" stroke-width="2" opacity=".7"/>' +
-    '<circle cx="25" cy="32" r="2.4" ' + SOLID + '/><circle cx="39" cy="32" r="2.4" ' + SOLID + '/>' +
-    '<path d="M21 27 L29 30 M43 27 L35 30"/>' +
+    '<g class="eyes"><circle cx="25" cy="32" r="2.4" ' + SOLID + '/><circle cx="39" cy="32" r="2.4" ' + SOLID + '/></g>' +
+    '<path class="brows" d="M21 27 L29 30 M43 27 L35 30"/>' +
     '<path d="M15 45 q8 -8 17 -1 q9 -7 17 1 q-8 6 -17 1 q-9 5 -17 -1Z" ' + SOLID + ' opacity=".85"/>' +
     '<g transform="translate(47 7) rotate(32)"><rect x="0" y="0" width="5" height="14" rx="1" ' + MID + '/><rect x="-1" y="13" width="7" height="8" rx="2" ' + SOLID + '/></g>',
   // Boss: The Hungry Dealer (zieht bis Soft 18): Maul auf, Sabber, Dealer-Schirm
   dealerHitsSoft18:
     FACE +
     '<path d="M12 22 H52 L47 31 H17Z" ' + MID + '/>' +
-    '<circle cx="25" cy="38" r="2.4" ' + SOLID + '/><circle cx="39" cy="38" r="2.4" ' + SOLID + '/>' +
-    '<path d="M19 44 Q32 62 45 44 Z" ' + SOLID + ' opacity=".8"/>' +
-    '<path d="M23 44 l3 5 l3 -5 M35 44 l3 5 l3 -5" fill="#050806" stroke="#050806"/>' +
+    '<g class="eyes"><circle cx="25" cy="38" r="2.4" ' + SOLID + '/><circle cx="39" cy="38" r="2.4" ' + SOLID + '/></g>' +
+    '<g class="mouth"><path d="M19 44 Q32 62 45 44 Z" ' + SOLID + ' opacity=".8"/>' +
+    '<path d="M23 44 l3 5 l3 -5 M35 44 l3 5 l3 -5" fill="#050806" stroke="#050806"/></g>' +
     '<path d="M47 50 Q43 58 47 60 Q51 58 47 50Z" ' + SOLID + ' opacity=".8"/>',
   // Boss: The Iconoclast (keine Bildkarten): Hammer und zerschlagene Karte
   noFaceCards:
@@ -129,7 +178,7 @@ const ICON_64 = {
   bustTax:
     FACE +
     '<rect x="19" y="4" width="26" height="15" rx="2" ' + MID + '/><rect x="12" y="18" width="40" height="5" rx="2" ' + SOLID + ' opacity=".85"/>' +
-    '<text x="24" y="39" font-size="13" ' + T_ATTR + '>$</text><text x="41" y="39" font-size="13" ' + T_ATTR + '>$</text>' +
+    '<g class="eyes"><text x="24" y="39" font-size="13" ' + T_ATTR + '>$</text><text x="41" y="39" font-size="13" ' + T_ATTR + '>$</text></g>' +
     '<circle cx="41" cy="35" r="7"/><path d="M48 39 q6 6 4 16" stroke-width="1.6"/>' +
     '<path d="M21 46 Q32 58 44 46Z" ' + SOFT + '/><path d="M26 47 V51 M32 48 V53 M38 47 V51" stroke-width="1.6"/>'
 };

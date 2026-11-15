@@ -79,7 +79,14 @@ const Sfx = (() => {
     },
     coinAt(when) { tone(1568 + Math.random() * 400, 0.1, 'square', 0.05, when); },
     near() { tone(660, 0.12, 'triangle', 0.14); tone(587, 0.12, 'triangle', 0.14, 0.12); tone(494, 0.3, 'triangle', 0.14, 0.24); },
-    chipTally(step) { tone(480 + Math.min(step || 0, 10) * 75, 0.07, 'square', 0.06); }
+    chipTally(step) { tone(480 + Math.min(step || 0, 10) * 75, 0.07, 'square', 0.06); },
+    // Muenze: Schwirren nach oben, dann Klingeln
+    flip() { tone(500, 0.5, 'sine', 0.08, 0, 1900); for (let i = 0; i < 4; i++) tone(2400, 0.05, 'square', 0.03, 0.55 + i * 0.07, 1800); },
+    // Rubbellos: kratzendes Rauschen
+    scratch() { for (let i = 0; i < 8; i++) noise(0.07, 0.14, i * 0.1, 3500 + Math.random() * 2500, 1.2, 'highpass'); },
+    // Spielautomat: Ratschen, dann dreimal Glocke
+    slotWin() { for (let i = 0; i < 6; i++) tone(900 + i * 60, 0.03, 'square', 0.05, i * 0.05); [0.4, 0.58, 0.76].forEach(t => { tone(1568, 0.28, 'triangle', 0.12, t); tone(2093, 0.28, 'triangle', 0.06, t); }); },
+    rankUp() { arp([392, 494, 587, 784, 988, 1175], 0.09, 'square', 0.09, 0.3); noise(0.7, 0.09, 0.3, 6500, 0.7, 'highpass'); }
   };
 
   return {

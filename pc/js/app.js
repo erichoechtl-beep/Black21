@@ -46,7 +46,7 @@ function startRun(deckId) {
   if (!App.meta.unlockedDecks.includes(deckId)) return;
   App.meta.stats.runsStarted += 1;
   Save.saveMeta(App.meta);
-  App.engine = GameEngine.create(deckId, App.meta.unlockedCharms, undefined, makeHooks());
+  App.engine = GameEngine.create(deckId, App.meta.unlockedCharms, undefined, makeHooks(), rankInfo(App.meta.xp || 0).bonusCash);
   Save.saveRun(App.engine.run);
   App.pickingDeck = false; App.abandonArmed = false; App.burnMode = false; App.pendingTrick = null; App.inspected = '';
   App.bodyKey = null; App.lastPhase = null;
@@ -111,6 +111,16 @@ const ACTIONS = {
       if (item.kind === 'luckyDice' && E.lastRoll) {
         App.inspected = 'Lucky Dice: +' + E.lastRoll + ' Mult on this hand!';
         showDice(E.lastRoll);
+      } else if (item.kind === 'coinFlip') {
+        App.inspected = E.lastFlip ? 'Heads! This hand pays x3.' : 'Tails. Nothing changes.';
+        showCoin(E.lastFlip);
+      } else if (item.kind === 'scratchCard') {
+        App.inspected = 'Scratch Card: +$' + E.lastScratch + '!';
+        showScratch(E.lastScratch);
+      } else if (item.kind === 'hotChips') {
+        App.inspected = 'Hot Chips: +150 Chips on this hand!';
+        coinShower(10, document.querySelector('#loadout .badge.cheater') || $('#phone'));
+        haptic('wheelWin');
       }
       renderApp();
     }
@@ -211,9 +221,15 @@ function renderMenu() {
       '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
       '<button class="tbtn dimmed" data-act="crt">CRT: ' + CRT.mode.toUpperCase() + '</button></div></div>';
   }
+  const rk = rankInfo(m.xp || 0);
+  const rankCard = '<div class="rank"><div class="rank-top"><span class="rank-name">' + rk.name + '</span><span class="rank-lv">LEVEL ' + rk.level + '</span></div>' +
+    '<div class="bar"><div class="fill" style="width:' + Math.round(rk.into / rk.span * 100) + '%"></div></div>' +
+    '<div class="rank-sub">' + rk.into + ' / ' + rk.span + ' XP' + (rk.bonusCash ? ' &middot; START CASH +$' + rk.bonusCash : '') + '</div></div>';
   appEl().innerHTML = '<div class="screen">' +
-    '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div><div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
-    '<div class="spacer"></div>' + main + '<div class="spacer"></div>' +
+    '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div>' +
+    '<div class="suits"><span class="k">&spades;</span><span class="r">&hearts;</span><span class="k">&clubs;</span><span class="r">&diams;</span></div>' +
+    '<div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
+    '<div class="spacer"></div>' + (App.pickingDeck ? '' : rankCard + '<div style="height:12px"></div>') + main + '<div class="spacer"></div>' +
     '<div class="footer-stats">POINTS ' + m.points + ' | BEST POT ' + (s.bestPot || 0) + ' | BEST STREAK ' + (s.bestStreak || 0) + '<br>RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + ' | BEST HAND ' + s.highestHandScore + '</div></div>';
 }
 
@@ -269,8 +285,14 @@ function renderSummary() {
   }
   const rec = s.newRecord ? '<div class="record new">NEW RECORD! BEST POT ' + s.potReached + '</div>' :
     '<div class="record">BEST POT ' + App.meta.stats.bestPot + (!good && App.meta.stats.bestPot > s.potReached ? ' &middot; ' + (App.meta.stats.bestPot - s.potReached) + ' TO BEAT IT' : '') + '</div>';
+  // Casino-Rang: Erfahrung gibt es immer, auch nach einer Niederlage
+  const rb = s.rankBefore, ra = s.rankAfter, leveled = ra && rb && ra.level > rb.level;
+  const rankGain = ra ? '<div class="rank-gain"><div class="rank-top"><span class="rank-name">+' + s.xpGain + ' XP</span><span class="rank-lv">' + ra.name + ' &middot; LEVEL ' + ra.level + '</span></div>' +
+    '<div class="bar"><div class="fill xp-fill" id="xp-fill" style="width:' + Math.round(rb.into / rb.span * 100) + '%"></div></div>' +
+    '<div class="rank-sub">' + ra.into + ' / ' + ra.span + ' XP TO NEXT LEVEL</div>' +
+    (leveled ? '<div class="rank-up" id="rank-up">RANK UP! ' + esc(ra.name) + (ra.bonusCash > rb.bonusCash ? '<div class="tiny" style="letter-spacing:1px;margin-top:4px">START CASH +$' + ra.bonusCash + ' FROM NOW ON</div>' : '') + '</div>' : '') + '</div>' : '';
   appEl().innerHTML = '<div class="screen"><div class="spacer"></div>' +
-    '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec +
+    '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec + rankGain +
     '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
     row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
     row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST STREAK', s.stats.bestStreak || 0) + row('BEST HAND', s.stats.bestHand) + '</div>' +
@@ -280,6 +302,20 @@ function renderSummary() {
   // Ton, Schütteln, Zahlen zählen
   if (good) { haptic(s.won ? 'jackpot' : 'wheelWin'); setTimeout(() => coinShower(30, $('#pot-n')), 300); }
   else { haptic('bust'); shakeScreen(); }
+  // Erfahrungsbalken füllt sich (bei Rang-Aufstieg erst bis voll, dann von vorn)
+  const xf = $('#xp-fill');
+  if (xf && ra) {
+    const pct = x => Math.round(x.into / x.span * 100) + '%';
+    setTimeout(() => { if (xf.isConnected) xf.style.width = leveled ? '100%' : pct(ra); }, 700);
+    if (leveled) {
+      setTimeout(() => {
+        if (!xf.isConnected) return;
+        xf.style.transition = 'none'; xf.style.width = '0%'; void xf.offsetWidth;
+        xf.style.transition = ''; xf.style.width = pct(ra);
+        haptic('rankUp'); coinShower(24, $('#rank-up'));
+      }, 2100);
+    }
+  }
   const n = $('#pot-n');
   if (n && n.dataset.from) {
     const from = Number(n.dataset.from), t0 = performance.now();
@@ -433,7 +469,7 @@ function updateStreak(E) {
 function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
-  $('#hud-blind').textContent = E.phase === 'shop' ? 'PAWN SHOP' : BLIND_KINDS[blind.kind].name;
+  $('#hud-blind').textContent = E.phase === 'shop' ? 'CASHIER CAGE' : BLIND_KINDS[blind.kind].name;
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
   // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
@@ -644,7 +680,7 @@ function renderPreview(E) {
   const v = E.value(hand);
   const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
   const b = scoreHand({ hand, value: v, outcome: 'win', isNatural: natural, charms: E.run.charms, bankroll: E.run.bankroll, payoutBoost: E.round.payoutBoost,
-    luckMult: E.round.luckMult, streak: E.run.streak || 0 });
+    luckMult: E.round.luckMult, hotChips: E.round.hotChips, streak: E.run.streak || 0 });
   chips.textContent = Math.trunc(b.chips);
   mult.textContent = fmtNum(b.mult * b.factor);
   if (v.isBust) { head.textContent = 'BUST'; head.className = 't-head red'; }
@@ -687,6 +723,10 @@ async function playTally(token, resolved, key) {
       chips.textContent = run.chips; mult.textContent = fmtNum(run.mult);
       popEl(chips); popEl(mult);
       haptic('chipTally', step);
+      // Casino-Charms bekommen ihren eigenen kleinen Auftritt
+      const ev = r.breakdown.events[step - 1];
+      if (ev && ev.source.indexOf('Slot Machine') === 0) { haptic('slotWin'); showBanner('7 - 7 - 7', 'SLOT MACHINE PAYS +8 MULT', 'hot'); coinShower(14, mult); }
+      else if (ev && ev.kind === 'cash' && ev.value > 0) { haptic('coin'); coinShower(4, chips); }
     }
     await sleep(450);
     if (token !== App.tallyToken) return;
@@ -881,6 +921,45 @@ function dieSvg(n) {
   return '<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" class="die-body"/>' +
     F[n].map(k => '<circle cx="' + P[k][0] + '" cy="' + P[k][1] + '" r="8.5" class="die-pip"/>').join('') + '</svg>';
 }
+// Münze: dreht sich in 3D und bleibt auf Kopf oder Zahl liegen
+function showCoin(heads) {
+  const ph = $('#phone');
+  if (!ph) return;
+  const box = document.createElement('div');
+  box.className = 'dice-ov';
+  box.innerHTML = '<div class="coin-wrap"><div class="coin spin"><div class="coin-face">$</div></div></div><div class="dice-txt"></div>';
+  ph.appendChild(box);
+  const coin = box.querySelector('.coin'), face = box.querySelector('.coin-face'), txt = box.querySelector('.dice-txt');
+  haptic('flip');
+  setTimeout(() => {
+    coin.classList.remove('spin'); coin.classList.add(heads ? 'heads' : 'tails');
+    face.textContent = heads ? '$' : 'x';
+    txt.textContent = heads ? 'HEADS! PAYS x3' : 'TAILS...';
+    txt.classList.toggle('sad', !heads);
+    haptic(heads ? 'jackpot' : 'near');
+    if (heads) coinShower(18, coin);
+  }, 1100);
+  setTimeout(() => box.remove(), 2600);
+}
+
+// Rubbellos: das Silberfeld wird weggerubbelt, darunter steht der Gewinn
+function showScratch(prize) {
+  const ph = $('#phone');
+  if (!ph) return;
+  const box = document.createElement('div');
+  box.className = 'dice-ov';
+  box.innerHTML = '<div class="scratch"><div class="sc-top">SCRATCH &amp; WIN</div><div class="sc-win"><div class="sc-prize' + (prize >= 25 ? ' big' : '') + '">' +
+    (prize > 0 ? '+$' + prize : 'NO WIN') + '</div><div class="sc-foil"></div></div></div><div class="dice-txt"></div>';
+  ph.appendChild(box);
+  haptic('scratch');
+  setTimeout(() => {
+    box.querySelector('.dice-txt').textContent = prize >= 25 ? 'JACKPOT!' : prize > 0 ? 'NICE!' : 'ALMOST...';
+    haptic(prize >= 25 ? 'jackpot' : prize > 0 ? 'wheelWin' : 'near');
+    if (prize > 0) coinShower(prize >= 25 ? 40 : 10, box.querySelector('.sc-prize'));
+  }, 1250);
+  setTimeout(() => box.remove(), 2700);
+}
+
 function showDice(n) {
   const ph = $('#phone');
   if (!ph) return;
@@ -910,7 +989,7 @@ function offerKind(item) { return item.type === 'charm' ? 'KEEPS WORKING' : 'USE
 
 function shopHtml(E) {
   const run = E.run;
-  let h = '<div class="shop-scroll"><div class="sect" style="margin-top:4px">FOR SALE</div>';
+  let h = '<div class="shop-scroll"><div class="cage">THE CASHIER CAGE<small>CHARMS STAY. ITEMS ARE USED ONCE.</small></div>';
   for (const o of run.shop ? run.shop.offers : []) {
     const isCharm = o.item.type === 'charm';
     const tone = isCharm ? CHARMS[o.item.kind].rarity : 'cheater';
