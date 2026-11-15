@@ -1,0 +1,68 @@
+/* ===== PC-Version: breites Fenster, Hud links, Tisch rechts ===== */
+body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, #000 100%); }
+#phone { width: min(100vw - 24px, 1240px); height: min(100dvh - 24px, 820px); border-radius: 36px; box-shadow: 0 0 0 10px #111, 0 0 80px #000; }
+
+/* Pokertisch-Rand breiter und runder */
+.screen { padding: 26px 56px 44px; border-radius: 34px 34px 110px 110px / 34px 34px 80px 80px; }
+.screen::after { border-radius: 22px 22px 80px 80px / 22px 22px 60px 60px; }
+
+/* Menü, Sammlung, Zusammenfassung: schmale Spalte in der Mitte */
+.screen:not(#runscreen) { padding-left: calc(50% - 270px); padding-right: calc(50% - 270px); }
+
+/* Lauf: am Tisch HUD links, Tisch rechts. Sonst eine mittige Spalte. */
+#runscreen:has(#table) { flex-direction: row; gap: 40px; }
+#runscreen:has(#table) .hud { width: 340px; flex: none; gap: 18px; padding-top: 6px; }
+#runscreen:has(#table) .hud-top { flex-direction: column; gap: 14px; }
+#runscreen:has(#table) .bankroll { width: auto; height: auto; }
+#runscreen:has(#table) .bankroll .bk { position: static; text-align: left; }
+#runscreen:has(#table) #body { flex: 1; min-width: 0; }
+#runscreen:not(:has(#table)) .hud { width: 100%; max-width: 560px; margin: 0 auto; }
+#runscreen:not(:has(#table)) #body { align-items: center; }
+#runscreen:not(:has(#table)) #body > * { width: 100%; max-width: 560px; }
+
+.goal-score { font-size: 56px; }
+.goal-of { font-size: 26px; }
+.goal-live .t-read { font-size: 40px; }
+.stepper .tbl { font-size: 15px; }
+.node { width: 36px; height: 36px; }
+.bankroll .money { font-size: 36px; }
+
+/* Gegner größer */
+.opp-row { min-height: 76px; gap: 16px; margin-top: 0; }
+.opp-avatar { width: 68px; height: 68px; }
+.opp-avatar svg { width: 50px; height: 50px; }
+.opp-info { max-width: 340px; }
+.opp-info .tag { font-size: 20px; }
+.opp-rule { font-size: 13px; }
+.opp-row .num { font-size: 24px; }
+.opp-big { width: 170px; height: 170px; }
+.opp-big svg { width: 128px; height: 128px; }
+.hand-total { font-size: 22px; padding: 2px 18px; }
+.hint { font-size: 18px; }
+.hands { gap: 36px; min-height: 0; }
+.cards-row { justify-content: center; padding-left: 0; }
+.center-panel { flex: 1; min-height: 20px; }
+.arc { width: 420px; height: 98px; }
+.arc text { font-size: 15px; }
+
+/* Buttons: nicht über die ganze Breite, Maus-Effekte, Tastenkürzel */
+#actions { width: 100%; max-width: 640px; margin: 0 auto; }
+.tbtn.big { min-height: 66px; font-size: 24px; }
+@media (hover: hover) {
+  .tbtn:hover:not(:active):not(:disabled) { filter: brightness(1.18); transform: translateY(-2px); }
+  .tbtn.big:hover:not(:active):not(:disabled) { box-shadow: 0 7px 0 rgba(var(--c), .5), 0 12px 20px rgba(0, 0, 0, .5), 0 0 30px rgba(var(--c), .75), inset 0 1px 0 rgba(255, 255, 255, .3); }
+  .card:hover { cursor: pointer; }
+}
+.tbtn kbd { font: 700 12px var(--font); margin-left: 8px; padding: 2px 7px; border-radius: 5px; color: inherit; opacity: .75;
+  border: 1.5px solid currentColor; border-bottom-width: 3px; letter-spacing: 0; text-shadow: none; }
+.tbtn.big kbd { font-size: 14px; padding: 3px 9px; }
+.tbtn.dimmed kbd { font-size: 11px; padding: 1px 6px; }
+
+/* Shop und Co. in der Mitte etwas luftiger */
+.opp-row, .hands, .cards-row { transition: none; }
+@media (max-height: 760px) {
+  .screen { padding-top: 16px; padding-bottom: 36px; }
+  .goal-score { font-size: 44px; }
+  .opp-row { min-height: 60px; } .opp-avatar { width: 54px; height: 54px; } .opp-avatar svg { width: 40px; height: 40px; }
+  .tbtn.big { min-height: 54px; font-size: 21px; }
+}
