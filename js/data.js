@@ -9,7 +9,7 @@ const Tuning = {
   foilChips: 30, holoXMult: 1.5, gildedCash: 1,
   winFactor: 1, pushFactor: 0.5, loseFactor: 0,   // verlorene Hand = 0 Punkte (High Stakes)
   streakCap: 6,                                   // Siegesserie: +1 Mult je Sieg in Folge, bis max. +6
-  potPerBlind: 10, potPerTable: 50, potPerStreak: 5, potWin: 250,
+  potPerBlind: 10, potPerTable: 50, potPerStreak: 0, potWin: 250,
   doubleDownCost: 3, finalAnte: 8,
   anteBaseTargets: [180, 550, 1500, 4200, 11000, 20000, 35000, 50000],
   baseHands: 5, baseDiscards: 3, charmSlots: 5, consumableSlots: 2,
@@ -68,10 +68,10 @@ function hashString(s) { // FNV-1a, damit jede Karte immer gleich "verschlissen"
 
 // ---------- Decks ----------
 const DECKS = {
-  house: { name: "The House Deck", blurb: '52 clean cards. No tricks, no mercy.', unlock: 'Unlocked from the start.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
-  gamblers: { name: "The Gambler's Deck", blurb: '+2 Rerolls every round.', unlock: 'Clear Table 1.', bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
-  highRoller: { name: 'The High Roller Deck', blurb: 'Start with +$10, but 1 fewer Hand per round.', unlock: 'Clear 3 Tables in total.', bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
-  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'All four 2s are gone. Fatter hands, fewer pushes.', unlock: 'Reach Table 5 in a single run.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
+  house: { name: "The House Deck", blurb: 'Classic 52 cards.', unlock: 'Open from the start.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  gamblers: { name: "The Gambler's Deck", blurb: '+2 rerolls each round.', unlock: 'Clear Table 1.', bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
+  highRoller: { name: 'The High Roller Deck', blurb: '+$10 start, 1 fewer hand.', unlock: 'Clear 3 Tables in total.', bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
+  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'No 2s. Fatter hands.', unlock: 'Reach Table 5 in a single run.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
 };
 const DECK_IDS = Object.keys(DECKS);
 function buildDeck(deckId) {
@@ -85,33 +85,31 @@ function buildDeck(deckId) {
 
 // ---------- Charms (passive Relikte) ----------
 const CHARMS = {
-  greasyFingers: { name: 'Greasy Fingers', text: 'Two 7s in your hand: +4 Mult.', glyph: '77', price: 5, rarity: 'uncommon', unlockAnte: 0 },
-  loanShark: { name: 'Loan Shark', text: '+10 Chips for every $10 you hold.', glyph: '$', price: 6, rarity: 'uncommon', unlockAnte: 0 },
-  brokenMirror: { name: 'Broken Mirror', text: 'Split hands: +50 Chips and double the Mult.', glyph: '◇', price: 8, rarity: 'rare', unlockAnte: 2 },
-  insuranceSlip: { name: 'Insurance Slip', text: 'Bust? You still get 60 Chips.', glyph: '+', price: 5, rarity: 'common', unlockAnte: 0 },
-  faceCardFan: { name: 'Face Card Fan', text: '+2 Mult for each J, Q, K in your hand.', glyph: 'K', price: 4, rarity: 'common', unlockAnte: 0 },
-  thinIce: { name: 'Thin Ice', text: 'Hand of 16 or less: +40 Chips.', glyph: '*', price: 4, rarity: 'common', unlockAnte: 1 },
-  goldenTooth: { name: 'Golden Tooth', text: 'Win a hand: earn $2.', glyph: 'Au', price: 6, rarity: 'uncommon', unlockAnte: 1 },
-  cardCounter: { name: 'Card Counter', text: '+1 Mult for each card after the 2nd.', glyph: '#', price: 5, rarity: 'common', unlockAnte: 2 },
-  // ---- Casino-Charms: bekannte Dinge aus echten Spielhallen ----
-  rouletteBall: { name: 'Roulette Ball', text: 'Even hand total: +3 Mult.', glyph: 'R', price: 5, rarity: 'common', unlockAnte: 0 },
-  freeDrink: { name: 'Free Drink', text: 'Lose a hand: earn $1.', glyph: 'D', price: 4, rarity: 'common', unlockAnte: 0 },
-  jackpotBell: { name: 'Jackpot Bell', text: 'Exactly 21: +4 Mult.', glyph: 'B', price: 6, rarity: 'uncommon', unlockAnte: 1 },
-  slotMachine: { name: 'Slot Machine', text: 'Every hand: 1 in 4 to hit 7-7-7 for +8 Mult.', glyph: '7', price: 6, rarity: 'uncommon', unlockAnte: 1 },
-  vipCard: { name: 'VIP Card', text: 'Everything in the shop costs $1 less.', glyph: 'V', price: 6, rarity: 'rare', unlockAnte: 1 },
-  luckyHorseshoe: { name: 'Lucky Horseshoe', text: 'Your hot streak bonus is doubled.', glyph: 'U', price: 7, rarity: 'rare', unlockAnte: 2 }
+  greasyFingers: { name: 'Greasy Fingers', text: 'Two 7s: +4 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 0 },
+  loanShark: { name: 'Loan Shark', text: '+10 Chips per $10 you hold.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
+  brokenMirror: { name: 'Broken Mirror', text: 'Split hands: +50 Chips, double Mult.', price: 8, rarity: 'rare', unlockAnte: 2 },
+  insuranceSlip: { name: 'Insurance Slip', text: 'Bust? Still 60 Chips.', price: 5, rarity: 'common', unlockAnte: 0 },
+  faceCardFan: { name: 'Face Card Fan', text: '+2 Mult per J, Q, K.', price: 4, rarity: 'common', unlockAnte: 0 },
+  thinIce: { name: 'Thin Ice', text: '16 or less: +40 Chips.', price: 4, rarity: 'common', unlockAnte: 1 },
+  goldenTooth: { name: 'Golden Tooth', text: 'Win a hand: +$2.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
+  cardCounter: { name: 'Card Counter', text: '+1 Mult per card after the 2nd.', price: 5, rarity: 'common', unlockAnte: 2 },
+  // ---- Casino-Charms ----
+  rouletteTable: { name: 'Roulette Table', text: 'A red 9 in your hand: x2 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
+  freeDrink: { name: 'Free Drink', text: 'Lose a hand: +$1.', price: 4, rarity: 'common', unlockAnte: 0 },
+  jackpotBell: { name: 'Jackpot Bell', text: 'Exactly 21: +4 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
+  slotMachine: { name: 'Slot Machine', text: '1 in 4: 7-7-7 for +8 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
+  vipCard: { name: 'VIP Card', text: 'Shop prices -$1.', price: 6, rarity: 'rare', unlockAnte: 1 },
+  luckyHorseshoe: { name: 'Lucky Horseshoe', text: 'Every win: +3 Mult.', price: 7, rarity: 'rare', unlockAnte: 2 }
 };
 const CHARM_IDS = Object.keys(CHARMS);
 
 // ---------- Cheater-Karten (Verbrauchsgüter) ----------
 const CHEATERS = {
-  loadTheDice: { name: 'Loaded Dice', text: 'Your next hand pays double.', price: 4, needsCardTarget: false, inRoundOnly: true, tag: 'LD' },
-  extraHand: { name: 'Extra Hand', text: 'Get 1 more hand this round.', price: 5, needsCardTarget: false, inRoundOnly: true, tag: 'EH' },
-  freeRerolls: { name: 'Reroll Pack', text: 'Get 2 more rerolls this round.', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'RP' },
-  luckyDice: { name: 'Lucky Dice', text: 'Roll a die: +1 to +6 Mult on this hand.', price: 4, needsCardTarget: false, inRoundOnly: true, tag: 'LU' },
-  scratchCard: { name: 'Scratch Card', text: 'Scratch it: win $0 to $4 right now. 1 in 12 wins $25!', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'SC' },
-  hotChips: { name: 'Hot Chips', text: 'A stack of chips: +150 Chips on this hand.', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'HC' },
-  coinFlip: { name: 'Coin Flip', text: 'Flip a coin: heads pays x3 on this hand, tails changes nothing.', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'CF' }
+  gamblersChip: { name: "Gambler's Chip", text: '+200 Chips on this hand.', price: 3, needsCardTarget: false, inRoundOnly: true, tone: 'red' },
+  lucky7: { name: 'Lucky 7', text: '+7 Mult on this hand.', price: 4, needsCardTarget: false, inRoundOnly: true, tone: 'blue' },
+  loadTheDice: { name: 'Loaded Dice', text: 'This hand pays double.', price: 4, needsCardTarget: false, inRoundOnly: true, tone: 'black' },
+  extraHand: { name: 'Extra Hand', text: '+1 hand this round.', price: 5, needsCardTarget: false, inRoundOnly: true, tone: 'green' },
+  freeRerolls: { name: 'Reroll Pack', text: '+2 rerolls this round.', price: 3, needsCardTarget: false, inRoundOnly: true, tone: 'purple' }
 };
 const CHEATER_IDS = Object.keys(CHEATERS);
 
@@ -260,8 +258,11 @@ function applyCharm(charm, ctx, b) {
       if (cards.length > 2) bdAdd(b, name, 'addMult', cards.length - 2);
       break;
     case 'insuranceSlip': break; // nur bei Bust relevant
-    case 'rouletteBall':
-      if (ctx.value.total % 2 === 0) bdAdd(b, name + ' (even)', 'addMult', 3);
+    case 'rouletteTable':
+      if (cards.some(c => c.rank === 9 && isRedSuit(c.suit))) bdAdd(b, name + ' (red 9)', 'xMult', 2);
+      break;
+    case 'luckyHorseshoe':
+      if (ctx.outcome === 'win') bdAdd(b, name, 'addMult', 3);
       break;
     case 'jackpotBell':
       if (ctx.value.total === 21) bdAdd(b, name, 'addMult', 4);
@@ -272,7 +273,7 @@ function applyCharm(charm, ctx, b) {
     case 'freeDrink':
       if (ctx.outcome === 'lose') bdAdd(b, name, 'cash', 1);
       break;
-    case 'vipCard': case 'luckyHorseshoe': break; // wirken woanders (Shop, Siegesserie)
+    case 'vipCard': break; // wirkt im Shop
   }
 }
 
@@ -294,15 +295,10 @@ function scoreHand(ctx) {
     else if (card.edition === 'holographic') bdAdd(b, shortName(card) + ' Holo', 'xMult', Tuning.holoXMult);
   }
   for (const charm of ctx.charms) applyCharm(charm, ctx, b);
-  if (ctx.luckMult) bdAdd(b, 'Lucky Dice', 'addMult', ctx.luckMult);
-  if (ctx.hotChips) bdAdd(b, 'Hot Chips', 'chips', ctx.hotChips);
-  // Siegesserie: wer mehrere Hände in Folge gewinnt, bekommt mehr Mult (nur bei einem Sieg)
-  if (ctx.outcome === 'win' && ctx.streak > 0) {
-    const horse = hasCharm(ctx, 'luckyHorseshoe');
-    bdAdd(b, horse ? 'Hot streak (horseshoe x2)' : 'Hot streak', 'addMult', Math.min(ctx.streak, Tuning.streakCap) * (horse ? 2 : 1));
-  }
+  if (ctx.luckMult) bdAdd(b, 'Lucky 7', 'addMult', ctx.luckMult);
+  if (ctx.hotChips) bdAdd(b, "Gambler's Chip", 'chips', ctx.hotChips);
   if (ctx.outcome !== 'win') bdAdd(b, OUTCOME_LABEL[ctx.outcome], 'factor', OUTCOME_FACTOR[ctx.outcome]);
-  if (ctx.payoutBoost !== 1) bdAdd(b, ctx.payoutBoost === 2 ? 'Loaded Dice' : ctx.payoutBoost === 3 ? 'Coin Flip' : 'Bonus payout', 'factor', ctx.payoutBoost);
+  if (ctx.payoutBoost !== 1) bdAdd(b, 'Loaded Dice', 'factor', ctx.payoutBoost);
   return b;
 }
 
@@ -359,7 +355,7 @@ function quipFor(outcome, n, oppId) {
 // Reihenfolge = Reihenfolge auf dem Rad. Der Jackpot sitzt zwischen kleinen Gewinnen: knapp daneben ist oft.
 const WHEEL = [
   { id: 'c2', label: '$2', kind: 'cash', value: 2, weight: 22, tone: 'dark' },
-  { id: 'dice', label: 'DICE', kind: 'item', item: 'luckyDice', weight: 12, tone: 'gold' },
+  { id: 'dice', label: '7', kind: 'item', item: 'lucky7', weight: 12, tone: 'gold' },
   { id: 'c3', label: '$3', kind: 'cash', value: 3, weight: 20, tone: 'dark' },
   { id: 'x2', label: 'x2', kind: 'double', weight: 9, tone: 'red' },
   { id: 'c5', label: '$5', kind: 'cash', value: 5, weight: 13, tone: 'dark' },

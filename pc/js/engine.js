@@ -548,19 +548,10 @@ class GameEngine {
       this.round.handsLeft += 1; this.round.totalHands += 1;
     } else if (item.kind === 'freeRerolls') {
       this.round.discardsLeft += 2;
-    } else if (item.kind === 'luckyDice') {
-      this.lastRoll = this.rng.int(6) + 1;
-      this.round.luckMult = this.lastRoll;
-    } else if (item.kind === 'hotChips') {
-      this.round.hotChips = (this.round.hotChips || 0) + 150;
-    } else if (item.kind === 'coinFlip') {
-      const heads = this.rng.chance(0.5);
-      this.lastFlip = heads;
-      if (heads) this.round.payoutBoost *= 3;
-    } else if (item.kind === 'scratchCard') {
-      const jackpot = this.rng.int(12) === 0;
-      this.lastScratch = jackpot ? 25 : this.rng.int(5);
-      run.bankroll += this.lastScratch;
+    } else if (item.kind === 'lucky7') {
+      this.round.luckMult = (this.round.luckMult || 0) + 7;
+    } else if (item.kind === 'gamblersChip') {
+      this.round.hotChips = (this.round.hotChips || 0) + 200;
     }
     run.consumables.splice(idx, 1);
     this.fb('coin');
@@ -587,7 +578,7 @@ function metaApply(meta, summary) {
   // Rekord zählt auch verlorene Töpfe: so sieht man, wie knapp man an der Bestmarke war
   // Casino-Rang: Erfahrung gibt es immer, auch bei Niederlage (Fortschritt ohne Frust)
   const s0 = summary.stats;
-  summary.xpGain = s0.handsPlayed * 4 + s0.blindsCleared * 25 + s0.tablesCleared * 60 + (s0.bestStreak || 0) * 8 + (summary.won ? 200 : 0);
+  summary.xpGain = s0.handsPlayed * 4 + s0.blindsCleared * 25 + s0.tablesCleared * 60 + 0 + (summary.won ? 200 : 0);
   summary.rankBefore = rankInfo(meta.xp || 0);
   meta.xp = (meta.xp || 0) + summary.xpGain;
   summary.rankAfter = rankInfo(meta.xp);

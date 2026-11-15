@@ -14,7 +14,7 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 #runscreen:has(#table) .hud { width: 340px; flex: none; gap: 18px; padding-top: 6px; }
 #runscreen:has(#table) .hud-top { flex-direction: column; gap: 14px; }
 #runscreen:has(#table) .bankroll { width: auto; height: auto; }
-#runscreen:has(#table) .bankroll .bk { position: static; text-align: left; }
+#runscreen:has(#table) .bankroll { align-items: flex-start; }
 #runscreen:has(#table) #body { flex: 1; min-width: 0; }
 #runscreen:not(:has(#table)) .hud { width: 100%; max-width: 560px; margin: 0 auto; }
 #runscreen:not(:has(#table)) #body { align-items: center; }
@@ -25,7 +25,7 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 .goal-live .t-read { font-size: 40px; }
 .stepper .tbl { font-size: 15px; }
 .node { width: 36px; height: 36px; }
-.bankroll .money { font-size: 36px; }
+.money-chip { width: 84px; height: 84px; } .money-chip .money { font-size: 26px; }
 
 /* Gegner größer */
 .opp-row { min-height: 76px; gap: 16px; margin-top: 0; }
@@ -81,3 +81,15 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 .hint.quip { font-size: 17px; padding: 6px 16px; }
 .mute { width: 30px; height: 30px; } .mute svg { width: 22px; height: 22px; }
 @media (max-height: 760px) { .bn-t { font-size: 40px; } .pb-n { font-size: 60px; } .wheel-box { width: min(50%, 330px); } }
+
+/* ---- Runde 3 ---- */
+.opp-avatar svg.char, .opp-big svg.char { width: 100%; height: 100%; }
+.opp-avatar { width: 72px; height: 72px; } .opp-big { width: 190px; height: 190px; }
+.mascot .opp-avatar { width: 110px; height: 110px; }
+.bubble { font-size: 15px; }
+.slot { max-width: 520px; margin-left: auto; margin-right: auto; }
+.hand-total { font-size: 30px; }
+.item-chip { width: 50px; height: 50px; } .item-chip svg { width: 28px; height: 28px; }
+.mreel { width: 30px; height: 30px; } .mreel svg { width: 22px; height: 22px; }
+.perk { font-size: 17px; }
+.detail { max-width: 520px; margin-left: auto; margin-right: auto; }

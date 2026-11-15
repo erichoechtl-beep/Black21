@@ -58,7 +58,7 @@ function continueRun() {
   const run = Save.loadRun();
   if (!run) { renderApp(); return; }
   App.engine = new GameEngine(run, makeHooks());
-  App.burnMode = false; App.pendingTrick = null; App.inspected = ''; App.abandonArmed = false;
+  App.burnMode = false; App.pendingTrick = null; App.inspected = ''; App.abandonArmed = false; App.sel = null;
   App.bodyKey = null; App.lastPhase = null;
   App.screen = 'run';
   renderApp();
@@ -90,9 +90,10 @@ const ACTIONS = {
   'cash-out': () => App.engine.collectCashOut(),
   'buy': t => App.engine.buy(t.dataset.id),
   'reroll': () => App.engine.rerollShop(),
-  'sell': t => App.engine.sell(t.dataset.uid),
+  'sell': t => { App.sel = null; App.engine.sell(t.dataset.uid); },
   'use-shop': t => App.engine.use(t.dataset.uid),
   'leave-shop': () => { App.inspected = ''; App.engine.leaveShop(); },
+  'sel': t => { App.sel = App.sel === t.dataset.uid ? null : t.dataset.uid; renderApp(); },
   'inspect-charm': t => { App.inspected = CHARMS[t.dataset.kind].name + ': ' + CHARMS[t.dataset.kind].text; renderApp(); },
   'use-cheater': t => {
     const E = App.engine, item = E.run.consumables.find(c => c.uid === t.dataset.uid);
@@ -106,22 +107,11 @@ const ACTIONS = {
       App.inspected = armed ? '' : def.name + ': tap a card in your hand.';
       renderApp();
     } else {
-      App.inspected = '';
+      App.inspected = ''; App.sel = null;
       E.use(item.uid);
-      if (item.kind === 'luckyDice' && E.lastRoll) {
-        App.inspected = 'Lucky Dice: +' + E.lastRoll + ' Mult on this hand!';
-        showDice(E.lastRoll);
-      } else if (item.kind === 'coinFlip') {
-        App.inspected = E.lastFlip ? 'Heads! This hand pays x3.' : 'Tails. Nothing changes.';
-        showCoin(E.lastFlip);
-      } else if (item.kind === 'scratchCard') {
-        App.inspected = 'Scratch Card: +$' + E.lastScratch + '!';
-        showScratch(E.lastScratch);
-      } else if (item.kind === 'hotChips') {
-        App.inspected = 'Hot Chips: +150 Chips on this hand!';
-        coinShower(10, document.querySelector('#loadout .badge.cheater') || $('#phone'));
-        haptic('wheelWin');
-      }
+      showBanner(def.name.toUpperCase(), def.text.toUpperCase(), 'hot');
+      haptic('wheelWin');
+      coinShower(8, document.querySelector('#loadout .chips-row') || $('#phone'));
       renderApp();
     }
   }
@@ -202,11 +192,33 @@ function renderApp() {
 }
 
 // ----- Hauptmenü -----
+const MASCOT_LINES = {
+  sleepySam: ['Zzz... oh. A customer.', 'Deal me in. Slowly.', 'Five more minutes...'],
+  slickVic: ['Back for more, kid?', 'Feeling lucky?', 'The house always smiles.'],
+  acesCountOne: ['Sit. Play. Lose.', 'My aces. My rules.'],
+  dealerHitsSoft18: ['Fresh chips! Yum!', 'I am so hungry...'],
+  noFaceCards: ['No kings here!', 'Cards break. So do you.'],
+  faceDownInitial: ['I can feel your hand.', 'Who needs eyes?'],
+  shortHanded: ['Tick tock! Hurry up!', 'Time is money!'],
+  bustTax: ['Taxes, darling.', 'Pay up, pay up!']
+};
+const MENU_ICON = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  cont: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12M12 6l6 6-6 6"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" fill-opacity=".2"/><path d="M9 8h6M9 12h6"/></svg>',
+  crt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2" fill="currentColor" fill-opacity=".2"/><path d="M8 21h8"/></svg>'
+};
 function renderMenu() {
   const m = App.meta, s = m.stats;
+  if (!App.mascot) {
+    const ids = OPPONENTS.map(o => o.id).concat(BOSS_IDS);
+    App.mascot = ids[Math.floor(Math.random() * ids.length)];
+    const lines = MASCOT_LINES[App.mascot] || ['Welcome.'];
+    App.mascotLine = lines[Math.floor(Math.random() * lines.length)];
+  }
   let main;
   if (App.pickingDeck) {
-    main = '<div class="col" style="gap:10px"><div class="green bold small">&gt; SELECT DECK</div>' +
+    main = '<div class="col" style="gap:10px"><div class="menu-h">CHOOSE YOUR DECK</div>' +
       DECK_IDS.map(id => {
         const d = DECKS[id], ok = m.unlockedDecks.includes(id);
         return '<button class="tbtn left deck-btn ' + (ok ? '' : 'dimmed') + '" data-act="start-deck" data-deck="' + id + '"' + (ok ? '' : ' disabled') + '>' +
@@ -214,23 +226,22 @@ function renderMenu() {
       }).join('') +
       '<button class="tbtn dimmed" data-act="back-deck">BACK</button></div>';
   } else {
-    main = '<div class="col" style="gap:12px">' +
-      (Save.hasRun() ? '<button class="tbtn green" data-act="continue">CONTINUE RUN</button>' : '') +
-      '<button class="tbtn" data-act="new-run">NEW RUN</button>' +
-      '<button class="tbtn" data-act="collection">COMPENDIUM</button>' +
-      '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
-      '<button class="tbtn dimmed" data-act="crt">CRT: ' + CRT.mode.toUpperCase() + '</button></div></div>';
+    main = '<div class="col" style="gap:10px">' +
+      (Save.hasRun() ? '<button class="tbtn big green" data-act="continue"><i class="mi">' + MENU_ICON.cont + '</i>CONTINUE</button>' : '') +
+      '<button class="tbtn big gold" data-act="new-run"><i class="mi">' + MENU_ICON.play + '</i>NEW RUN</button>' +
+      '<button class="tbtn" data-act="collection"><i class="mi sm">' + MENU_ICON.book + '</i>COLLECTION</button>' +
+      '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
+      '<button class="tbtn dimmed" data-act="crt">CRT ' + CRT.mode.toUpperCase() + '</button></div></div>';
   }
   const rk = rankInfo(m.xp || 0);
-  const rankCard = '<div class="rank"><div class="rank-top"><span class="rank-name">' + rk.name + '</span><span class="rank-lv">LEVEL ' + rk.level + '</span></div>' +
-    '<div class="bar"><div class="fill" style="width:' + Math.round(rk.into / rk.span * 100) + '%"></div></div>' +
-    '<div class="rank-sub">' + rk.into + ' / ' + rk.span + ' XP' + (rk.bonusCash ? ' &middot; START CASH +$' + rk.bonusCash : '') + '</div></div>';
+  const rankCard = '<div class="rank"><div class="rank-top"><span class="rank-name">' + rk.name + '</span><span class="rank-lv">LV ' + rk.level + '</span></div>' +
+    '<div class="bar"><div class="fill" style="width:' + Math.round(rk.into / rk.span * 100) + '%"></div></div></div>';
+  const mascot = '<div class="mascot"><div class="opp-avatar boss" data-id="' + App.mascot + '">' + icon(App.mascot, 80) + '</div><div class="bubble left">' + esc(App.mascotLine) + '</div></div>';
   appEl().innerHTML = '<div class="screen">' +
     '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div>' +
-    '<div class="suits"><span class="k">&spades;</span><span class="r">&hearts;</span><span class="k">&clubs;</span><span class="r">&diams;</span></div>' +
-    '<div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
-    '<div class="spacer"></div>' + (App.pickingDeck ? '' : rankCard + '<div style="height:12px"></div>') + main + '<div class="spacer"></div>' +
-    '<div class="footer-stats">POINTS ' + m.points + ' | BEST POT ' + (s.bestPot || 0) + ' | BEST STREAK ' + (s.bestStreak || 0) + '<br>RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + ' | BEST HAND ' + s.highestHandScore + '</div></div>';
+    '<div class="suits"><span class="k">&spades;</span><span class="r">&hearts;</span><span class="k">&clubs;</span><span class="r">&diams;</span></div></div>' +
+    '<div class="spacer"></div>' + (App.pickingDeck ? '' : mascot + rankCard + '<div style="height:10px"></div>') + main + '<div class="spacer"></div>' +
+    '<div class="footer-stats">POINTS ' + m.points + ' &middot; BEST POT ' + (s.bestPot || 0) + '</div></div>';
 }
 
 // ----- Compendium -----
@@ -294,8 +305,7 @@ function renderSummary() {
   appEl().innerHTML = '<div class="screen"><div class="spacer"></div>' +
     '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec + rankGain +
     '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
-    row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
-    row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST STREAK', s.stats.bestStreak || 0) + row('BEST HAND', s.stats.bestHand) + '</div>' +
+    row('TABLE', s.anteReached + '/' + Tuning.finalAnte) + row('BLINDS', s.stats.blindsCleared) + row('BEST HAND', s.stats.bestHand) + '</div>' +
     '<div style="margin-top:10px">' + s.newUnlocks.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>' +
     '<div class="spacer"></div><button class="tbtn big green" data-act="again">' + (good ? 'PLAY AGAIN' : 'TRY AGAIN') + '</button>' +
     '<button class="tbtn dimmed" style="margin-top:8px" data-act="menu">MAIN MENU</button></div>';
@@ -333,10 +343,10 @@ const RUN_SKELETON =
   '<div class="screen" id="runscreen">' +
   '<div class="hud"><div class="hud-top"><div>' +
   '<div class="stepper" id="stepper"></div><div id="hud-blind" class="big bold green glow"></div><div class="pips" id="hud-pips"></div></div>' +
-  '<div class="bankroll"><div class="bk"><div class="tiny dim">MONEY</div><div class="money" id="hud-money"></div>' +
-  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div></div>' +
+  '<div class="bankroll"><div class="money-chip"><div class="mc-in"><span class="money" id="hud-money"></span></div></div>' +
+  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div>' +
   // Einfache Punkteanzeige: Stand / Ziel, Balken, und eine Zeile "Chips x Mult"
-  '<div class="goal" id="goal"><div class="streak" id="streak" hidden></div><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
+  '<div class="goal" id="goal"><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
   '<div class="goal-score"><span id="g-score">0</span><span class="goal-of"> / <span id="g-target">0</span></span></div>' +
   '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
   '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
@@ -351,8 +361,6 @@ const TABLE_SKELETON =
   '<span class="num" id="dealer-total"></span></div>' +
   '<div class="cards-row" id="dealer-cards"></div>' +
   '<div class="center-panel" id="center">' +
-  '<svg class="arc" viewBox="0 0 300 70" aria-hidden="true"><path id="arcp" d="M20 62 Q150 -4 280 62" fill="none"/>' +
-  '<text><textPath href="#arcp" startOffset="50%" text-anchor="middle">BLACKJACK PAYS 3 TO 2</textPath></text></svg>' +
   '<div class="hint" id="hint"></div></div>' +
   '<div class="hands" id="player-hands"></div>' +
   '<div id="loadout"></div><div id="actions"></div></div>';
@@ -446,36 +454,15 @@ function updateRoundDisplay(E, blind, inRound) {
   if (pipEl.dataset.sig !== pips) { pipEl.innerHTML = pips; pipEl.dataset.sig = pips; }
 }
 
-const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.5c.6 4.6 5.6 6.6 5.6 12.2a5.6 5.6 0 0 1-11.2 0c0-2.7 1.6-3.9 2.5-6.2.9 1.6 1.7 1.9 2.7 1.3C11.4 6.7 11.2 4.4 12 1.5z"/><path fill="#fff6c8" fill-opacity=".85" d="M12 21a3 3 0 0 1-3-3c0-1.9 1.9-2.8 3-4.8 1.1 2 3 2.9 3 4.8a3 3 0 0 1-3 3z"/></svg>';
-
-// Siegesserie: Flamme in der Punkteanzeige, wächst mit jedem Sieg in Folge
-function updateStreak(E) {
-  const el = $('#streak');
-  if (!el) return;
-  const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
-  let s = E.run.streak || 0;
-  // Solange die Punkte noch gezählt werden, den alten Stand zeigen (kein Spoiler)
-  if (E.phase === 'handResult' && App.tallyDoneKey !== tallyKeyFor(E)) s = E.round.streakBefore || 0;
-  el.hidden = !(inRound && s > 0);
-  if (el.hidden) { el.dataset.s = ''; return; }
-  if (el.dataset.s === String(s)) return;
-  const grew = el.dataset.s !== '' && Number(el.dataset.s) < s;
-  el.dataset.s = String(s);
-  el.className = 'streak lv' + (s >= 5 ? 3 : s >= 3 ? 2 : 1);
-  el.innerHTML = FLAME + '<div><div class="st-n">STREAK ' + s + '</div><div class="st-b">NEXT WIN +' + Math.min(s, Tuning.streakCap) + ' MULT</div></div>';
-  if (grew) { el.classList.add('grew'); setTimeout(() => el.classList.remove('grew'), 700); }
-}
-
 function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
-  $('#hud-blind').textContent = E.phase === 'shop' ? 'CASHIER CAGE' : BLIND_KINDS[blind.kind].name;
+  $('#hud-blind').textContent = E.phase === 'shop' ? 'SHOP' : BLIND_KINDS[blind.kind].name;
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
   // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
   const potEl = $('#hud-pot'), pot = E.potNow;
   if (potEl.textContent !== String(pot)) { potEl.textContent = pot; popEl(potEl); }
-  updateStreak(E);
   const mute = $('#mute');
   if (mute && mute.dataset.m !== String(Sfx.muted)) {
     mute.dataset.m = String(Sfx.muted);
@@ -494,9 +481,9 @@ function updateHud(E) {
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 52, p: 56, m: 48, w };
-  if (h < 790) return { d: 62, p: 66, m: 54, w };
-  return { d: 72, p: 76, m: 60, w };
+  if (h < 700) return { d: 50, p: 60, m: 48, w };
+  if (h < 790) return { d: 64, p: 80, m: 58, w };
+  return { d: 70, p: 92, m: 64, w };
 }
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
@@ -533,7 +520,7 @@ function updateTable(E) {
   const opp = opponentFor(r.blind);
   const oppEl = $('#opp');
   if (oppEl.dataset.id !== opp.id) {
-    oppEl.innerHTML = icon(opp.id, 34);
+    oppEl.innerHTML = icon(opp.id, 60);
     oppEl.dataset.id = opp.id;
     oppEl.className = 'opp-avatar' + (opp.isBoss ? ' boss' : '');
   }
@@ -564,7 +551,7 @@ function updateTable(E) {
   // Die verdeckte Karte zittert und glüht, bis sie aufgedeckt wird
   const hole = $('#dealer-cards').children[1];
   if (hole) hole.classList.toggle('suspense', E.phase === 'dealerTurn' && !r.dealerHoleRevealed);
-  $('#player-hands').style.minHeight = (size.p * 1.4 + 34) + 'px';
+  $('#player-hands').style.minHeight = (size.p * 1.4 + 46) + 'px';
 
   // Mitte: kurzer Hinweis. Die Punkte stehen oben in der festen Zielanzeige.
   const hint = $('#hint'), live = $('#g-live');
@@ -604,7 +591,8 @@ function updateTable(E) {
       card => !E.isHidden(card, hand), active && (App.burnMode || !!App.pendingTrick));
     const tot = $('.hand-total', el);
     tot.textContent = E.displayTotal(hand) + (hand.isDoubled ? '  x2' : '');
-    tot.className = 'hand-total ' + (active ? 'green' : 'amber');
+    const hv = E.value(hand), hid = E.round.rules.hidesFirstCard && E.phase === 'playerTurn';
+    tot.className = 'hand-total ' + (!hid && hv.isBust ? 'bust' : !hid && hv.total === 21 ? 'twentyone' : active ? 'green' : 'amber');
   });
 
   // Blackjack beim Austeilen? Dann gibt es eine kleine Feier.
@@ -617,20 +605,48 @@ function updateTable(E) {
   if (aEl.dataset.h !== ah) { aEl.innerHTML = ah; aEl.dataset.h = ah; }
 }
 
+// ----- Items sehen aus wie Casino-Chips, Charms wie Walzen eines Spielautomaten -----
+function itemChipHtml(kind, extra, act, uid) {
+  const def = CHEATERS[kind];
+  return '<div class="item-chip tone-' + def.tone + (extra || '') + '"' + (act ? ' data-act="' + act + '"' : '') + (uid ? ' data-uid="' + uid + '"' : '') + ' data-kind="' + kind + '">' + icon(kind, 28) + '</div>';
+}
+
+// Am Tisch: ganz dezent. Kleine Walzen links, Item-Chips rechts.
 function loadoutHtml(E) {
-  let h = '<div class="loadout">';
+  let reels = '', chips = '';
+  for (const c of E.run.charms) reels += '<div class="mreel ' + CHARMS[c.kind].rarity + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 20) + '</div>';
+  for (const it of E.run.consumables) chips += itemChipHtml(it.kind, (App.pendingTrick === it.uid ? ' armed' : '') + (E.canUse(it) ? '' : ' off'), 'use-cheater', it.uid);
+  return '<div class="loadout"><div class="mini-reels">' + reels + '</div><div class="sp"></div><div class="chips-row">' + chips + '</div></div><div class="inspect">' + esc(App.inspected) + '</div>';
+}
+
+// Der Charm-Spielautomat (Shop und Blind-Auswahl)
+function slotHtml(E) {
+  let reels = '';
   for (let i = 0; i < Tuning.charmSlots; i++) {
     const c = E.run.charms[i];
-    h += c ? badgeHtml(c.kind) : '<div class="badge empty"></div>';
+    reels += c ? '<div class="reel full ' + CHARMS[c.kind].rarity + (App.sel === c.uid ? ' sel' : '') + '" data-act="sel" data-uid="' + c.uid + '">' + icon(c.kind, 38) + '</div>'
+      : '<div class="reel"><b>?</b></div>';
   }
-  h += '<div class="sp"></div>';
-  for (let i = 0; i < Tuning.consumableSlots; i++) {
-    const it = E.run.consumables[i];
-    if (!it) { h += '<div class="badge empty"></div>'; continue; }
-    h += '<div class="badge cheater' + (App.pendingTrick === it.uid ? ' armed' : '') + (E.canUse(it) ? '' : ' off') +
-      '" data-act="use-cheater" data-uid="' + it.uid + '">' + icon(it.kind, 34) + '</div>';
+  return '<div class="slot"><div class="slot-sign"><span>CHARMS</span></div><div class="slot-body"><div class="reels">' + reels + '</div><div class="lever"><i></i></div></div></div>';
+}
+// Items darunter als Chip-Reihe
+function itemRowHtml(E) {
+  if (!E.run.consumables.length) return '';
+  return '<div class="chips-row mid">' + E.run.consumables.map(it => itemChipHtml(it.kind, App.sel === it.uid ? ' armed' : '', 'sel', it.uid)).join('') + '</div>';
+}
+// Kurzer Hinweis zum angetippten Charm/Item (nur ein Satz)
+function detailHtml(E, canSell) {
+  const c = E.run.charms.find(x => x.uid === App.sel), it = E.run.consumables.find(x => x.uid === App.sel);
+  if (c) {
+    const def = CHARMS[c.kind];
+    return '<div class="detail"><div><div class="d-name">' + def.name.toUpperCase() + '</div><div class="d-text">' + esc(def.text) + '</div></div>' +
+      (canSell ? '<button class="tbtn small red" data-act="sell" data-uid="' + c.uid + '">SELL $' + E.sellValue(c) + '</button>' : '') + '</div>';
   }
-  return h + '</div><div class="inspect">' + esc(App.inspected) + '</div>';
+  if (it) {
+    const def = CHEATERS[it.kind];
+    return '<div class="detail"><div><div class="d-name">' + def.name.toUpperCase() + '</div><div class="d-text">' + esc(def.text) + ' Use it during a hand.</div></div></div>';
+  }
+  return '<div class="detail hint-only">' + (E.run.charms.length || E.run.consumables.length ? 'TAP ONE FOR DETAILS' : 'NOTHING YET') + '</div>';
 }
 
 const BTN_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="3" fill="currentColor" fill-opacity=".18"/><path d="M12 8v8M8 12h8"/></svg>';
@@ -736,7 +752,7 @@ async function playTally(token, resolved, key) {
   if (token !== App.tallyToken) return;
   App.tallyDoneKey = key;
   const E = App.engine;
-  if (E) { updateGoal(E); updateStreak(E); }
+  if (E) updateGoal(E);
   const goal = $('#goal');
   const gained = resolved.reduce((a, r) => a + r.total, 0);
   if (goal && gained > 0) {
@@ -744,11 +760,6 @@ async function playTally(token, resolved, key) {
     // Münzregen: je größer der Gewinn im Verhältnis zum Ziel, desto mehr Münzen
     const rel = E ? gained / Math.max(1, E.round.blind.target) : 0.1;
     coinShower(Math.min(26, 6 + Math.round(rel * 40)), $('#g-score'));
-  }
-  // Serie wächst: kleine Feier
-  if (E && E.round.streakEvent === 'up' && E.run.streak >= 2) {
-    haptic('streak', E.run.streak);
-    showBanner('HOT STREAK x' + E.run.streak, '+' + Math.min(E.run.streak, Tuning.streakCap) + ' MULT ON YOUR NEXT WIN', 'hot');
   }
 }
 
@@ -762,7 +773,6 @@ function handFeedback(E) {
   const stillHere = () => App.screen === 'run' && App.engine === E && E.phase === 'handResult' && App.fbKey === key;
   if (allLost) { shakeScreen(); flashScreen('red'); }
   if (r.nearMiss) setTimeout(() => { if (stillHere()) { haptic('near'); showBanner(r.nearMiss.text, r.nearMiss.sub, 'near'); } }, 650);
-  if (r.streakEvent === 'lost') setTimeout(() => { if (stillHere()) { haptic('streakLost'); showBanner('STREAK LOST', r.streakBefore + ' WINS IN A ROW. BUILD IT AGAIN.', 'lost'); } }, r.nearMiss ? 2000 : 650);
 }
 
 function shakeScreen() {
@@ -816,17 +826,20 @@ function blindHtml(E) {
   const b = currentBlind(E.run), rules = rulesFor(b.boss), kind = BLIND_KINDS[b.kind];
   const opp = opponentFor(b);
   const hands = Math.max(1, E.handsPerRound - rules.handsPenalty);
+  const perk = (ic, n) => '<span class="perk">' + ic + '<b>' + n + '</b></span>';
+  const HAND_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5" fill="currentColor" fill-opacity=".25"/></svg>';
   const ahead = b.boss ? '' :
-    '<div class="center small red ahead">' + icon(E.run.bossForAnte, 26) + '<span>BOSS AHEAD: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
-  return '<div class="col" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '" data-id="' + opp.id + '">' + icon(opp.id, 92) + '</div></div>' +
+    '<div class="ahead">' + icon(E.run.bossForAnte, 30) + '<span>BOSS: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
+  return '<div class="col blindsel" style="flex:1;gap:10px;padding-bottom:6px">' +
+    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '" data-id="' + opp.id + '">' + icon(opp.id, 140) + '</div></div>' +
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
-    '<div class="center small dim" style="margin-top:-6px">' + opp.intro + '</div>' +
-    '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
-    '<div class="small dim" style="margin-top:4px">REWARD $' + kind.reward + ' &middot; ' + hands + ' HANDS &middot; ' + E.discardsPerRound + ' REROLLS</div></div>' +
-    ahead + '<div class="spacer"></div>' + loadoutHtml(E) +
+    '<div class="bubble">' + esc(opp.intro) + '</div>' +
+    '<div class="goalrow"><div class="goal-chip"><span>GOAL</span><b>' + b.target + '</b></div><div class="perks">' +
+    perk('<i class="pk-s">$</i>', kind.reward) + perk(HAND_ICO, hands) + perk(icon('freeRerolls', 18), E.discardsPerRound) + '</div></div>' +
+    ahead + '<div class="spacer"></div>' +
+    (E.run.charms.length ? slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') : (E.run.consumables.length ? itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') : '')) +
     '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
-    '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP RUN') + '</button></div>';
+    '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP') + '</button></div>';
 }
 
 function cashoutHtml(E) {
@@ -837,13 +850,13 @@ function cashoutHtml(E) {
   const bonus = spun ? '<div class="line spinline"><span>LUCKY SPIN</span><span>' + esc(spun.text) + '</span></div>' : '';
   // Nach einem Boss: Topf sichern oder weiterspielen (Push your luck)
   const bank = E.canBank ?
-    '<div class="bank-note">POT <b>' + E.potNow + '</b> PTS. KEEP GOING FOR MORE, BUT A LOST RUN PAYS <b>0</b>.</div>' : '';
+    '<div class="bank-note">POT <b>' + E.potNow + '</b>. A LOST RUN KEEPS <b>0</b>.</div>' : '';
   return '<div class="col" style="flex:1;gap:14px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center huge bold green glow">' + (E.round.blind.kind === 2 ? 'TABLE CLEARED' : 'BLIND CLEARED') + '</div>' +
-    '<div class="panel amber">' + line(BLIND_KINDS[E.round.blind.kind].name + ' REWARD', p.blindReward) + line('UNUSED HANDS', p.handsBonus) +
-    line('INTEREST', p.interest) + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
+    '<div class="center huge bold green glow cleared">' + (E.round.blind.kind === 2 ? 'TABLE CLEARED' : 'CLEARED!') + '</div>' +
+    '<div class="panel amber">' + line('REWARD', p.blindReward) + (p.handsBonus ? line('SPARE HANDS', p.handsBonus) : '') +
+    (p.interest ? line('INTEREST', p.interest) : '') + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
     '<div class="spacer"></div>' +
-    (spun ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'SPIN THE WHEEL</button>') +
+    (spun ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'LUCKY SPIN</button>') +
     '<button class="tbtn big green" data-act="cash-out">CASH OUT</button>' +
     (E.canBank ? '<button class="tbtn dimmed" data-act="bank">BANK ' + E.bankValue + ' PTS &amp; QUIT</button>' : '') + '</div>';
 }
@@ -914,109 +927,25 @@ function spinWheelUI() {
   setTimeout(finish, T + 600);
 }
 
-// ----- Lucky Dice: Würfel rollt und bleibt auf der gewürfelten Zahl liegen -----
-function dieSvg(n) {
-  const P = { tl: [28, 28], tr: [72, 28], ml: [28, 50], mr: [72, 50], bl: [28, 72], br: [72, 72], c: [50, 50] };
-  const F = { 1: ['c'], 2: ['tl', 'br'], 3: ['tl', 'c', 'br'], 4: ['tl', 'tr', 'bl', 'br'], 5: ['tl', 'tr', 'c', 'bl', 'br'], 6: ['tl', 'tr', 'ml', 'mr', 'bl', 'br'] };
-  return '<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" class="die-body"/>' +
-    F[n].map(k => '<circle cx="' + P[k][0] + '" cy="' + P[k][1] + '" r="8.5" class="die-pip"/>').join('') + '</svg>';
-}
-// Münze: dreht sich in 3D und bleibt auf Kopf oder Zahl liegen
-function showCoin(heads) {
-  const ph = $('#phone');
-  if (!ph) return;
-  const box = document.createElement('div');
-  box.className = 'dice-ov';
-  box.innerHTML = '<div class="coin-wrap"><div class="coin spin"><div class="coin-face">$</div></div></div><div class="dice-txt"></div>';
-  ph.appendChild(box);
-  const coin = box.querySelector('.coin'), face = box.querySelector('.coin-face'), txt = box.querySelector('.dice-txt');
-  haptic('flip');
-  setTimeout(() => {
-    coin.classList.remove('spin'); coin.classList.add(heads ? 'heads' : 'tails');
-    face.textContent = heads ? '$' : 'x';
-    txt.textContent = heads ? 'HEADS! PAYS x3' : 'TAILS...';
-    txt.classList.toggle('sad', !heads);
-    haptic(heads ? 'jackpot' : 'near');
-    if (heads) coinShower(18, coin);
-  }, 1100);
-  setTimeout(() => box.remove(), 2600);
-}
-
-// Rubbellos: das Silberfeld wird weggerubbelt, darunter steht der Gewinn
-function showScratch(prize) {
-  const ph = $('#phone');
-  if (!ph) return;
-  const box = document.createElement('div');
-  box.className = 'dice-ov';
-  box.innerHTML = '<div class="scratch"><div class="sc-top">SCRATCH &amp; WIN</div><div class="sc-win"><div class="sc-prize' + (prize >= 25 ? ' big' : '') + '">' +
-    (prize > 0 ? '+$' + prize : 'NO WIN') + '</div><div class="sc-foil"></div></div></div><div class="dice-txt"></div>';
-  ph.appendChild(box);
-  haptic('scratch');
-  setTimeout(() => {
-    box.querySelector('.dice-txt').textContent = prize >= 25 ? 'JACKPOT!' : prize > 0 ? 'NICE!' : 'ALMOST...';
-    haptic(prize >= 25 ? 'jackpot' : prize > 0 ? 'wheelWin' : 'near');
-    if (prize > 0) coinShower(prize >= 25 ? 40 : 10, box.querySelector('.sc-prize'));
-  }, 1250);
-  setTimeout(() => box.remove(), 2700);
-}
-
-function showDice(n) {
-  const ph = $('#phone');
-  if (!ph) return;
-  const box = document.createElement('div');
-  box.className = 'dice-ov';
-  box.innerHTML = '<div class="die rolling"></div><div class="dice-txt"></div>';
-  ph.appendChild(box);
-  const die = box.querySelector('.die');
-  die.innerHTML = dieSvg(1 + Math.floor(Math.random() * 6));
-  const iv = setInterval(() => { die.innerHTML = dieSvg(1 + Math.floor(Math.random() * 6)); }, 75);
-  haptic('dice');
-  setTimeout(() => {
-    clearInterval(iv);
-    die.innerHTML = dieSvg(n);
-    die.classList.remove('rolling'); die.classList.add('land');
-    box.querySelector('.dice-txt').textContent = '+' + n + ' MULT';
-    haptic(n === 6 ? 'jackpot' : 'wheelWin');
-    if (n === 6) coinShower(20, die);
-  }, 950);
-  setTimeout(() => box.remove(), 2400);
-}
-
-// ----- Shop: drei einfache Angebote -----
+// ----- Shop: "The Cage" mit drei Angeboten, darunter dein Charm-Automat -----
 function offerTitle(item) { return item.type === 'charm' ? CHARMS[item.kind].name : CHEATERS[item.kind].name; }
 function offerDetail(item) { return item.type === 'charm' ? CHARMS[item.kind].text : CHEATERS[item.kind].text; }
-function offerKind(item) { return item.type === 'charm' ? 'KEEPS WORKING' : 'USE ONCE'; }
 
 function shopHtml(E) {
   const run = E.run;
-  let h = '<div class="shop-scroll"><div class="cage">THE CASHIER CAGE<small>CHARMS STAY. ITEMS ARE USED ONCE.</small></div>';
+  let h = '<div class="shop-scroll"><div class="cage">THE CAGE</div>';
   for (const o of run.shop ? run.shop.offers : []) {
     const isCharm = o.item.type === 'charm';
-    const tone = isCharm ? CHARMS[o.item.kind].rarity : 'cheater';
-    h += '<div class="offer ' + (o.isSold ? 'sold' : '') + '"><div class="offer-icon badge ' + tone + '" style="cursor:default">' + icon(o.item.kind, 46) + '</div>' +
-      '<div class="info"><div class="nm">' + esc(offerTitle(o.item)).toUpperCase() + '</div><div class="tx">' + esc(offerDetail(o.item)) + '</div>' +
-      '<div class="tag-line">' + offerKind(o.item) + '</div></div>' +
+    const visual = isCharm
+      ? '<div class="offer-icon badge ' + CHARMS[o.item.kind].rarity + '" style="cursor:default">' + icon(o.item.kind, 46) + '</div>'
+      : '<div class="offer-icon">' + itemChipHtml(o.item.kind, ' big') + '</div>';
+    h += '<div class="offer ' + (o.isSold ? 'sold' : '') + '">' + visual +
+      '<div class="info"><div class="nm">' + esc(offerTitle(o.item)).toUpperCase() + '</div><div class="tx">' + esc(offerDetail(o.item)) + '</div></div>' +
       '<button class="tbtn small ' + (run.bankroll >= o.price ? 'green' : 'dimmed') + '" data-act="buy" data-id="' + o.id + '"' + (o.isSold ? ' disabled' : '') + '>' + (o.isSold ? 'SOLD' : '$' + o.price) + '</button></div>';
   }
-  h += '<div class="sect">YOUR CHARMS (' + run.charms.length + '/' + Tuning.charmSlots + ')</div>';
-  if (!run.charms.length) h += '<div class="small dim">None yet. Buy one above!</div>';
-  h += '<div class="owned">';
-  for (const c of run.charms) {
-    h += '<div class="own-tile"><div class="badge ' + CHARMS[c.kind].rarity + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 36) + '</div>' +
-      '<div class="own-name">' + CHARMS[c.kind].name + '</div>' +
-      '<button class="tbtn small red" data-act="sell" data-uid="' + c.uid + '">SELL $' + E.sellValue(c) + '</button></div>';
-  }
-  h += '</div>';
-  if (run.consumables.length) {
-    h += '<div class="sect">YOUR ITEMS (' + run.consumables.length + '/' + Tuning.consumableSlots + ')</div><div class="owned">';
-    for (const it of run.consumables) {
-      h += '<div class="own-tile"><div class="badge cheater" style="cursor:default">' + icon(it.kind, 36) + '</div><div class="own-name">' + CHEATERS[it.kind].name + '</div>' +
-        '<div class="tiny dim">use it during a hand</div></div>';
-    }
-    h += '</div>';
-  }
+  h += slotHtml(E) + itemRowHtml(E) + detailHtml(E, true);
   h += '</div><div class="row" style="margin-top:8px;padding-bottom:6px"><button class="tbtn" data-act="reroll">REFRESH $' + (run.shop ? run.shop.rerollCost : Tuning.rerollBase) + '</button>' +
-    '<button class="tbtn green" data-act="leave-shop">NEXT BLIND</button></div>';
+    '<button class="tbtn green" data-act="leave-shop">NEXT</button></div>';
   return h;
 }
 

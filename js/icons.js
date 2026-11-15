@@ -51,11 +51,6 @@ const ICON_48 = {
     '<g transform="rotate(12 24 24)"><rect x="9" y="9" width="30" height="30" rx="6" ' + SOFT + '/>' +
     '<g ' + SOLID + '><circle cx="18" cy="18" r="2.8"/><circle cx="30" cy="18" r="2.8"/><circle cx="24" cy="24" r="2.8"/><circle cx="18" cy="30" r="2.8"/><circle cx="30" cy="30" r="2.8"/></g></g>' +
     '<path d="M40 5 V11 M37 8 H43" stroke-width="2"/>',
-  // Lucky Dice: Würfel mit sechs Augen und Glitzer
-  luckyDice:
-    '<g transform="rotate(-10 24 25)"><rect x="9" y="9" width="30" height="30" rx="6" ' + SOFT + '/>' +
-    '<g ' + SOLID + '><circle cx="18" cy="17" r="2.8"/><circle cx="30" cy="17" r="2.8"/><circle cx="18" cy="24" r="2.8"/><circle cx="30" cy="24" r="2.8"/><circle cx="18" cy="31" r="2.8"/><circle cx="30" cy="31" r="2.8"/></g></g>' +
-    '<path d="M40 4 V10 M37 7 H43 M7 38 V43 M4.5 40.5 H9.5" stroke-width="2"/>',
   // Extra Hand: Karte mit +1
   extraHand:
     '<rect x="9" y="7" width="22" height="32" rx="3" transform="rotate(-10 20 23)" ' + SOFT + '/>' +
@@ -68,11 +63,11 @@ const ICON_48 = {
     '<path d="M11 29 A14 14 0 0 0 37 28"/><path d="M10 39 V29 H20"/>',
 
   // ---- Casino ----
-  // Roulette Ball: Roulette-Kessel mit Kugel
-  rouletteBall:
-    '<circle cx="24" cy="24" r="18" ' + SOFT + '/><circle cx="24" cy="24" r="10"/>' +
-    '<path d="M24 6V14M24 34V42M6 24H14M34 24H42M11.3 11.3L17 17M31 31L36.7 36.7M36.7 11.3L31 17M17 31L11.3 36.7" stroke-width="1.8"/>' +
-    '<circle cx="24" cy="24" r="3" ' + SOLID + '/><circle cx="36" cy="12" r="3.4" ' + SOLID + '/>',
+  // Roulette Table: Kessel mit roter 9
+  rouletteTable:
+    '<circle cx="24" cy="24" r="18" ' + SOFT + '/><circle cx="24" cy="24" r="11"/>' +
+    '<path d="M24 6V13M24 35V42M6 24H13M35 24H42M11.3 11.3L16.5 16.5M31.5 31.5L36.7 36.7M36.7 11.3L31.5 16.5M16.5 31.5L11.3 36.7" stroke-width="1.8"/>' +
+    '<text x="24" y="29.5" font-size="14" ' + T_ATTR + '>9</text><circle cx="38" cy="10" r="3.4" ' + SOLID + '/>',
   // Free Drink: Cocktailglas mit Olive und Strohhalm
   freeDrink:
     '<path d="M9 12 H39 L24 28 Z" ' + MID + '/><path d="M24 28 V41 M15 41 H33"/>' +
@@ -98,89 +93,14 @@ const ICON_48 = {
     '<path d="M13 8 V27 A11 11 0 0 0 35 27 V8" stroke-width="7" opacity=".65"/>' +
     '<g stroke="none" fill="#050806"><circle cx="13" cy="14" r="1.6"/><circle cx="13" cy="21" r="1.6"/><circle cx="35" cy="14" r="1.6"/><circle cx="35" cy="21" r="1.6"/><circle cx="16.2" cy="31.5" r="1.6"/><circle cx="31.8" cy="31.5" r="1.6"/></g>' +
     '<path d="M24 41 V46 M21.5 43.5 H26.5" stroke-width="2"/>',
-  // Scratch Card: Rubbellos mit freigerubbeltem Feld
-  scratchCard:
-    '<g transform="rotate(-8 24 24)"><rect x="7" y="9" width="34" height="30" rx="3" ' + SOFT + '/>' +
-    '<rect x="12" y="15" width="24" height="15" rx="2" ' + MID + '/>' +
-    '<text x="24" y="28" font-size="13" stroke="none" fill="#050806" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">$$</text>' +
-    '<path d="M12 35 H28" stroke-width="1.8"/></g><path d="M40 4 V10 M37 7 H43" stroke-width="2"/>',
-  // Hot Chips: Chipstapel mit Flamme
-  hotChips:
-    '<path d="M10 36 V31 M38 36 V31 M10 28 V23 M38 28 V23 M10 20 V15 M38 20 V15" stroke-width="2"/>' +
-    '<ellipse cx="24" cy="36" rx="14" ry="5" ' + SOFT + '/><ellipse cx="24" cy="28" rx="14" ry="5" ' + SOFT + '/><ellipse cx="24" cy="20" rx="14" ry="5" ' + MID + '/>' +
-    '<path d="M20 20 H28" stroke-width="1.8"/><path d="M24 3 Q15 9 24 13 Q33 9 24 3Z" ' + SOLID + ' opacity=".85"/>',
-  // Coin Flip: Münze im Wurf
-  coinFlip:
-    '<circle cx="24" cy="27" r="15" ' + SOFT + '/><circle cx="24" cy="27" r="10" stroke-width="1.8"/>' +
-    '<text x="24" y="32" font-size="14" ' + T_ATTR + '>$</text>' +
-    '<path d="M24 2 V7 M13 5 L15.5 9 M35 5 L32.5 9" stroke-width="2"/>'
-};
-
-// ---------- Gesichter für Bosse & Gegner (Box 64x64) ----------
-const FACE = '<circle cx="32" cy="35" r="21" ' + SOFT + '/>';
-const ICON_64 = {
-  // Der Gegner der Small Blind: schläfrig
-  sleepySam:
-    FACE +
-    '<path d="M16 24 Q32 8 48 24" ' + MID + '/>' +                       // Dealer-Käppi
-    '<path class="closed" d="M20 36 q4 3 8 0 M36 36 q4 3 8 0"/>' +      // halb geschlossene Augen
-    '<g class="wide"><circle cx="24" cy="35" r="5" fill="#050806" stroke-width="1.6"/><circle cx="40" cy="35" r="5" fill="#050806" stroke-width="1.6"/><circle cx="24" cy="35" r="1.8" ' + SOLID + '/><circle cx="40" cy="35" r="1.8" ' + SOLID + '/></g>' +
-    '<path d="M26 47 q6 3 12 0"/>' +
-    '<path d="M43 44 Q39 52 43 54 Q47 52 43 44Z" ' + SOLID + ' opacity=".8"/>' + // Sabber
-    '<text x="52" y="16" font-size="11" ' + T_ATTR + '>z</text><text x="58" y="9" font-size="8" ' + T_ATTR + '>z</text>',
-  // Der Gegner der Big Blind: cooler Schnösel mit Sonnenbrille
-  slickVic:
-    FACE +
-    '<path d="M13 30 Q16 8 32 8 Q48 8 51 30 Q40 20 32 21 Q22 20 13 30Z" ' + MID + '/>' + // Schmalzlocke
-    '<g class="eyes"><rect x="17" y="30" width="13" height="9" rx="3" ' + SOLID + '/><rect x="34" y="30" width="13" height="9" rx="3" ' + SOLID + '/>' +
-    '<path d="M30 34 H34"/></g>' +
-    '<path class="mouth" d="M22 48 Q32 55 42 46"/>' +
-    '<path d="M40 49 L56 44" stroke-width="3"/><circle cx="57" cy="43.5" r="2" fill="#ff7a3a" stroke="none"/>', // Zigarre
-  // Boss: The Shaved Ace (Asse zählen nur 1): Glatzkopf mit Schnurrbart und Rasierer
-  acesCountOne:
-    FACE +
-    '<path d="M24 17 q8 -5 16 0" stroke-width="2" opacity=".7"/>' +
-    '<g class="eyes"><circle cx="25" cy="32" r="2.4" ' + SOLID + '/><circle cx="39" cy="32" r="2.4" ' + SOLID + '/></g>' +
-    '<path class="brows" d="M21 27 L29 30 M43 27 L35 30"/>' +
-    '<path d="M15 45 q8 -8 17 -1 q9 -7 17 1 q-8 6 -17 1 q-9 5 -17 -1Z" ' + SOLID + ' opacity=".85"/>' +
-    '<g transform="translate(47 7) rotate(32)"><rect x="0" y="0" width="5" height="14" rx="1" ' + MID + '/><rect x="-1" y="13" width="7" height="8" rx="2" ' + SOLID + '/></g>',
-  // Boss: The Hungry Dealer (zieht bis Soft 18): Maul auf, Sabber, Dealer-Schirm
-  dealerHitsSoft18:
-    FACE +
-    '<path d="M12 22 H52 L47 31 H17Z" ' + MID + '/>' +
-    '<g class="eyes"><circle cx="25" cy="38" r="2.4" ' + SOLID + '/><circle cx="39" cy="38" r="2.4" ' + SOLID + '/></g>' +
-    '<g class="mouth"><path d="M19 44 Q32 62 45 44 Z" ' + SOLID + ' opacity=".8"/>' +
-    '<path d="M23 44 l3 5 l3 -5 M35 44 l3 5 l3 -5" fill="#050806" stroke="#050806"/></g>' +
-    '<path d="M47 50 Q43 58 47 60 Q51 58 47 50Z" ' + SOLID + ' opacity=".8"/>',
-  // Boss: The Iconoclast (keine Bildkarten): Hammer und zerschlagene Karte
-  noFaceCards:
-    '<rect x="8" y="34" width="24" height="26" rx="3" ' + SOFT + '/>' +
-    '<path d="M20 34 L16 43 L23 46 L18 60" stroke-width="2"/>' +
-    '<g transform="rotate(38 40 16)"><rect x="26" y="6" width="30" height="16" rx="3" ' + MID + '/></g>' +
-    '<path d="M46 20 L26 50" stroke-width="5"/>' +
-    '<path d="M50 40 l6 -3 M52 48 l7 0 M47 33 l4 -6" stroke-width="2"/>',
-  // Boss: The Blindfold (erste Karte verdeckt): Augenbinde
-  faceDownInitial:
-    FACE +
-    '<rect x="10" y="27" width="44" height="11" rx="3" ' + SOLID + ' opacity=".85"/>' +
-    '<path d="M54 31 L62 24 M54 34 L62 41" stroke-width="3"/>' +
-    '<path d="M30 40 l2 5 h3"/>' +
-    '<path d="M23 50 Q34 57 44 48"/>',
-  // Boss: The Time Limit (eine Hand weniger): wütender Wecker
-  shortHanded:
-    '<circle cx="32" cy="36" r="20" ' + SOFT + '/>' +
-    '<path d="M12 22 Q14 9 27 10 M52 22 Q50 9 37 10"/><circle cx="14" cy="21" r="5" ' + SOLID + ' opacity=".8"/><circle cx="50" cy="21" r="5" ' + SOLID + ' opacity=".8"/>' +
-    '<path d="M24 56 L19 62 M40 56 L45 62"/>' +
-    '<path d="M32 36 V25 M32 36 L40 41"/>' +
-    '<path d="M20 29 L28 33 M44 29 L36 33" stroke-width="3"/>' +
-    '<circle cx="32" cy="36" r="2" ' + SOLID + '/>',
-  // Boss: The Collector (Bust kostet $3): Zylinder, Monokel, Dollar-Augen
-  bustTax:
-    FACE +
-    '<rect x="19" y="4" width="26" height="15" rx="2" ' + MID + '/><rect x="12" y="18" width="40" height="5" rx="2" ' + SOLID + ' opacity=".85"/>' +
-    '<g class="eyes"><text x="24" y="39" font-size="13" ' + T_ATTR + '>$</text><text x="41" y="39" font-size="13" ' + T_ATTR + '>$</text></g>' +
-    '<circle cx="41" cy="35" r="7"/><path d="M48 39 q6 6 4 16" stroke-width="1.6"/>' +
-    '<path d="M21 46 Q32 58 44 46Z" ' + SOFT + '/><path d="M26 47 V51 M32 48 V53 M38 47 V51" stroke-width="1.6"/>'
+  // Gambler's Chip: Pik-Chip (Item)
+  gamblersChip:
+    '<circle cx="24" cy="24" r="18" ' + SOFT + '/><circle cx="24" cy="24" r="12.5" stroke-dasharray="4 3" stroke-width="2"/>' +
+    '<path d="M24 14 C16 21 17.5 28 22.4 28 C21.4 31 20.4 32.4 18.5 34 H29.5 C27.6 32.4 26.6 31 25.6 28 C30.5 28 32 21 24 14Z" ' + SOLID + '/>',
+  // Lucky 7: rote Sieben mit Glitzer (Item)
+  lucky7:
+    '<text x="24" y="35" font-size="34" ' + T_ATTR + '>7</text>' +
+    '<path d="M40 5 V12 M36.5 8.5 H43.5 M7 7 V12 M4.5 9.5 H9.5 M40 37 V42 M37.5 39.5 H42.5" stroke-width="2"/>'
 };
 
 function icon(name, size) {
@@ -188,8 +108,8 @@ function icon(name, size) {
   if (ICON_48[name]) {
     return '<svg class="ico" viewBox="0 0 48 48" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON_48[name] + '</svg>';
   }
-  if (ICON_64[name]) {
-    return '<svg class="ico" viewBox="0 0 64 64" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON_64[name] + '</svg>';
+  if (typeof ICON_CHAR !== 'undefined' && ICON_CHAR[name]) {
+    return '<svg class="ico char" viewBox="0 0 100 100" width="' + size + '" height="' + size + '" aria-hidden="true">' + ICON_CHAR[name] + '</svg>';
   }
   return '';
 }
