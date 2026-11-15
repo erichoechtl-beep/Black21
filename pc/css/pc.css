@@ -29,7 +29,7 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 
 /* Gegner größer */
 .opp-row { min-height: 76px; gap: 16px; margin-top: 0; }
-.opp-avatar { width: 68px; height: 68px; }
+.opp-avatar { width: 52px; height: 52px; }
 .opp-avatar svg { width: 50px; height: 50px; }
 .opp-info { max-width: 340px; }
 .opp-info .tag { font-size: 20px; }
@@ -84,9 +84,11 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 
 /* ---- Runde 3 ---- */
 .opp-avatar svg.char, .opp-big svg.char { width: 100%; height: 100%; }
-.opp-avatar { width: 72px; height: 72px; } .opp-big { width: 190px; height: 190px; }
+.opp-avatar { width: 52px; height: 52px; } .opp-big { width: 190px; height: 190px; }
 .slot { max-width: 520px; margin-left: auto; margin-right: auto; }
 .hand-total { font-size: 30px; }
 .item-chip { width: 50px; height: 50px; } .item-chip svg { width: 28px; height: 28px; }
 .mreel { width: 30px; height: 30px; } .mreel svg { width: 22px; height: 22px; }
 .detail { max-width: 520px; margin-left: auto; margin-right: auto; }
+/* Runde 7: ruhigere Buttons auch am PC */
+.tbtn.big:hover:not(:active):not(:disabled) { box-shadow: 0 4px 0 rgba(var(--c), .35); filter: brightness(1.12); transform: none; }

@@ -463,7 +463,7 @@ function updateHud(E) {
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 50, p: 60, m: 48, w };
+  if (h < 700) return { d: 46, p: 56, m: 46, w };
   if (h < 790) return { d: 64, p: 80, m: 58, w };
   return { d: 70, p: 92, m: 64, w };
 }
@@ -553,7 +553,7 @@ function updateTable(E) {
     let text, cls = 'green';
     if (App.pendingTrick) { text = 'Tap one of your cards'; cls = 'red'; }
     else if (App.burnMode) { text = 'Tap a card to reroll it'; cls = 'red'; }
-    else if (E.phase === 'dealerTurn') { text = r.dealerHoleRevealed ? opp.name + ' draws...' : 'Let\'s see what ' + opp.name + ' has...'; cls = 'amber'; }
+    else if (E.phase === 'dealerTurn') { text = ''; cls = 'amber'; }
     else text = '';
     hint.textContent = text;
     hint.className = 'hint ' + cls;
