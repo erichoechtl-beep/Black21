@@ -16,7 +16,8 @@ function newRunState(deckId, charmPool, seed) {
     charmPool: charmPool.slice(),
     shop: null,
     checkpoint: 'blindSelect',
-    stats: { handsPlayed: 0, bestHand: 0, blindsCleared: 0, tablesCleared: 0 },
+    stats: { handsPlayed: 0, bestHand: 0, blindsCleared: 0, tablesCleared: 0, bestStreak: 0 },
+    streak: 0,
     rngState: 0
   };
   run.rngState = rng.state;
@@ -38,6 +39,8 @@ class GameEngine {
   // Alte Spielstände mit entfernten Items/Shop-Angeboten bereinigen
   sanitize() {
     const run = this.run;
+    run.streak = run.streak || 0;
+    run.stats.bestStreak = run.stats.bestStreak || 0;
     run.charms = run.charms.filter(c => CHARMS[c.kind]);
     run.consumables = run.consumables.filter(c => CHEATERS[c.kind]);
     if (run.shop && run.shop.offers.some(o => !(o.item.type === 'charm' || (o.item.type === 'cheater' && CHEATERS[o.item.kind])))) {
@@ -70,7 +73,7 @@ class GameEngine {
     return {
       blind, rules: rulesFor(blind.boss), drawPile: [], discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0, handsLeft: 0, discardsLeft: 0,
-      resolved: [], lastHandScore: 0, payoutBoost: 1
+      resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, streakEvent: '', streakBefore: 0, nearMiss: null
     };
   }
 
@@ -117,7 +120,8 @@ class GameEngine {
       blind, rules, drawPile: pile, discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0,
       handsLeft: Math.max(1, this.handsPerRound - rules.handsPenalty),
-      discardsLeft: this.discardsPerRound, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1
+      discardsLeft: this.discardsPerRound, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1,
+      luckMult: 0, streakEvent: '', streakBefore: 0, nearMiss: null
     };
     this.dealHand();
     this.emit();
@@ -231,14 +235,21 @@ class GameEngine {
     const dealerNatural = dv.isTwentyOneInTwo;
     const results = [];
     let handTotal = 0, cash = 0, fees = 0;
+    const streakBefore = this.run.streak || 0;
+    let nearMiss = null;
     for (const hand of r.playerHands) {
       const v = this.value(hand);
       const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
       const outcome = resolveOutcome(v, natural, dv, dealerNatural);
       const breakdown = scoreHand({
         hand, value: v, outcome, isNatural: natural, charms: this.run.charms,
-        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost
+        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, streak: streakBefore
       });
+      // Knapp daneben: genau 1 Punkt zu wenig, oder Bust mit 22
+      if (!nearMiss) {
+        if (outcome === 'lose' && !dv.isBust && dv.total - v.total === 1) nearMiss = { kind: 'lose', text: v.total + ' vs ' + dv.total, sub: 'ONE POINT SHORT' };
+        else if (outcome === 'bust' && v.total === 22) nearMiss = { kind: 'bust', text: 'BUST BY ONE', sub: '22. SO CLOSE.' };
+      }
       const total = bdTotal(breakdown);
       results.push({ hand: { id: hand.id, cards: hand.cards.slice(), isDoubled: hand.isDoubled, isFromSplit: hand.isFromSplit }, value: v, outcome, breakdown, total });
       handTotal += total;
@@ -247,9 +258,19 @@ class GameEngine {
       this.run.stats.bestHand = Math.max(this.run.stats.bestHand, total);
     }
     r.payoutBoost = 1;
+    r.luckMult = 0;
     r.score += handTotal;
     r.lastHandScore = handTotal;
     r.resolved = results;
+    // Siegesserie: jeder Sieg erhöht sie, jede Niederlage (Lose/Bust) setzt sie auf 0, Push hält sie
+    const anyWin = results.some(x => x.outcome === 'win'), anyLoss = results.some(x => x.outcome === 'lose' || x.outcome === 'bust');
+    r.streakBefore = streakBefore;
+    r.nearMiss = anyWin ? null : nearMiss;
+    if (anyLoss) { this.run.streak = 0; r.streakEvent = streakBefore >= 2 ? 'lost' : ''; }
+    else if (anyWin) {
+      this.run.streak = streakBefore + 1; r.streakEvent = 'up';
+      this.run.stats.bestStreak = Math.max(this.run.stats.bestStreak || 0, this.run.streak);
+    } else r.streakEvent = '';
     this.run.bankroll = Math.max(0, this.run.bankroll + cash - fees);
     this.run.stats.handsPlayed += 1;
 
@@ -330,19 +351,69 @@ class GameEngine {
 
   abandonRun() {
     if (!this.fire({ type: 'abandon' })) return;
-    this.finishRun(false);
+    this.finishRun(false, false, true);
     this.emit();
   }
 
-  finishRun(won) {
+  // Nach einem geschafften Tisch (Boss) kann man den Topf sichern und aufhören
+  get canBank() {
+    return this.phase === 'roundCleared' && !!this.cashOut && this.round.blind.kind === 2 && this.round.blind.ante < Tuning.finalAnte;
+  }
+  get bankValue() {
+    const s = Object.assign({}, this.run.stats);
+    s.blindsCleared += 1; s.tablesCleared += 1;
+    return potPoints(s, false);
+  }
+  // Topf wie er gerade steht; beim geschafften Blind zählt der noch nicht abgeholte Blind (und Tisch) schon mit
+  get potNow() {
+    const s = Object.assign({}, this.run.stats);
+    if (this.phase === 'roundCleared' && this.cashOut) { s.blindsCleared += 1; if (this.round.blind.kind === 2) s.tablesCleared += 1; }
+    return potPoints(s, false);
+  }
+  bankRun() {
+    if (!this.canBank) return;
+    const run = this.run;
+    run.bankroll += this.cashOut.total;
+    run.stats.blindsCleared += 1;
+    run.stats.tablesCleared += 1;
+    this.cashOut = null;
+    if (!this.fire({ type: 'cashedOut', runComplete: true })) return;
+    this.fb('coin');
+    this.finishRun(false, true);
+    this.emit();
+  }
+
+  // Der Topf (Punkte) wird nur bei Sieg oder Bank ausgezahlt. Verloren = 0 Punkte.
+  finishRun(won, banked, abandoned) {
     const s = this.run.stats;
-    let points = s.blindsCleared * 10 + s.tablesCleared * 50;
-    if (won) points += 250;
+    const potReached = potPoints(s, won);
+    const paid = won || banked;
+    const r = this.round;
+    const failed = !won && !banked && !abandoned && r && r.blind;
     this.summary = {
-      won, deckType: this.run.deckType, anteReached: Math.min(this.run.ante, Tuning.finalAnte),
-      stats: Object.assign({}, s), pointsEarned: points, newUnlocks: []
+      won, banked: !!banked, abandoned: !!abandoned, deckType: this.run.deckType, anteReached: Math.min(this.run.ante, Tuning.finalAnte),
+      stats: Object.assign({}, s), pointsEarned: paid ? potReached : 0, potReached, newUnlocks: [], newRecord: false,
+      fail: failed ? { target: r.blind.target, score: r.score, short: Math.max(0, r.blind.target - r.score), pct: Math.min(99, Math.floor(r.score / r.blind.target * 100)), kind: r.blind.kind, name: opponentFor(r.blind).name } : null
     };
     if (this.hooks.onRunEnded) this.hooks.onRunEnded(this.summary);
+  }
+
+  // ----- Glücksrad nach einem geschafften Blind -----
+  spinWheel() {
+    if (this.phase !== 'roundCleared' || !this.cashOut || this.cashOut.spin) return null;
+    let roll = this.rng.int(WHEEL.reduce((a, s) => a + s.weight, 0)), idx = 0;
+    for (; idx < WHEEL.length - 1; idx++) { if (roll < WHEEL[idx].weight) break; roll -= WHEEL[idx].weight; }
+    const seg = WHEEL[idx], run = this.run, co = this.cashOut;
+    let text = '';
+    if (seg.kind === 'cash') { co.total += seg.value; text = '+$' + seg.value; }
+    else if (seg.kind === 'double') { co.total *= 2; text = 'REWARD x2'; }
+    else if (seg.kind === 'jackpot') { co.total += seg.value; text = 'JACKPOT +$' + seg.value; }
+    else if (seg.kind === 'item') {
+      if (run.consumables.length < Tuning.consumableSlots) { run.consumables.push({ uid: newId(), kind: seg.item }); text = CHEATERS[seg.item].name.toUpperCase(); }
+      else { co.total += 3; text = 'ITEMS FULL: +$3'; }
+    }
+    co.spin = { index: idx, id: seg.id, text, kind: seg.kind };
+    return co.spin;
   }
 
   // ----- Karten ziehen -----
@@ -470,6 +541,9 @@ class GameEngine {
       this.round.handsLeft += 1; this.round.totalHands += 1;
     } else if (item.kind === 'freeRerolls') {
       this.round.discardsLeft += 2;
+    } else if (item.kind === 'luckyDice') {
+      this.lastRoll = this.rng.int(6) + 1;
+      this.round.luckMult = this.lastRoll;
     }
     run.consumables.splice(idx, 1);
     this.fb('coin');
@@ -487,12 +561,17 @@ function newMeta() {
     unlockedCharms: CHARM_IDS.filter(id => CHARMS[id].unlockAnte === 0),
     discoveredCharms: [],
     discoveredEditions: ['standard'],
-    stats: { runsStarted: 0, runsWon: 0, totalHandsPlayed: 0, highestHandScore: 0, totalTablesCleared: 0, bestAnteReached: 1, currentBossStreak: 0, bestBossStreak: 0 }
+    stats: { runsStarted: 0, runsWon: 0, totalHandsPlayed: 0, highestHandScore: 0, totalTablesCleared: 0, bestAnteReached: 1, currentBossStreak: 0, bestBossStreak: 0, bestPot: 0, bestStreak: 0 }
   };
 }
 function metaApply(meta, summary) {
   const st = meta.stats;
   meta.points += summary.pointsEarned;
+  // Rekord zählt auch verlorene Töpfe: so sieht man, wie knapp man an der Bestmarke war
+  summary.recordBefore = st.bestPot || 0;
+  summary.newRecord = summary.potReached > summary.recordBefore;
+  st.bestPot = Math.max(st.bestPot || 0, summary.potReached);
+  st.bestStreak = Math.max(st.bestStreak || 0, summary.stats.bestStreak || 0);
   st.totalHandsPlayed += summary.stats.handsPlayed;
   st.highestHandScore = Math.max(st.highestHandScore, summary.stats.bestHand);
   st.totalTablesCleared += summary.stats.tablesCleared;

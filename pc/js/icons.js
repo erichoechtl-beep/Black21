@@ -51,6 +51,11 @@ const ICON_48 = {
     '<g transform="rotate(12 24 24)"><rect x="9" y="9" width="30" height="30" rx="6" ' + SOFT + '/>' +
     '<g ' + SOLID + '><circle cx="18" cy="18" r="2.8"/><circle cx="30" cy="18" r="2.8"/><circle cx="24" cy="24" r="2.8"/><circle cx="18" cy="30" r="2.8"/><circle cx="30" cy="30" r="2.8"/></g></g>' +
     '<path d="M40 5 V11 M37 8 H43" stroke-width="2"/>',
+  // Lucky Dice: Würfel mit sechs Augen und Glitzer
+  luckyDice:
+    '<g transform="rotate(-10 24 25)"><rect x="9" y="9" width="30" height="30" rx="6" ' + SOFT + '/>' +
+    '<g ' + SOLID + '><circle cx="18" cy="17" r="2.8"/><circle cx="30" cy="17" r="2.8"/><circle cx="18" cy="24" r="2.8"/><circle cx="30" cy="24" r="2.8"/><circle cx="18" cy="31" r="2.8"/><circle cx="30" cy="31" r="2.8"/></g></g>' +
+    '<path d="M40 4 V10 M37 7 H43 M7 38 V43 M4.5 40.5 H9.5" stroke-width="2"/>',
   // Extra Hand: Karte mit +1
   extraHand:
     '<rect x="9" y="7" width="22" height="32" rx="3" transform="rotate(-10 20 23)" ' + SOFT + '/>' +

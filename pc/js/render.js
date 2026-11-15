@@ -249,8 +249,10 @@ const CRT = {
 // ---------- Haptik (Vibration, nur auf Handys mit Browser-Unterstützung) ----------
 const HAPTIC_PATTERNS = {
   cardDeal: 8, hit: 12, stand: 20, bust: [40, 40, 60], win: [20, 30, 30], lose: 35, push: [15, 25, 15],
-  natural: [30, 30, 30, 30, 60], suspense: [40, 120, 40, 400, 60, 120, 60], chipTally: 6, coin: 10, purchase: [15, 30, 25], error: [50, 40, 50], tap: 5
+  natural: [30, 30, 30, 30, 60], suspense: [40, 120, 40, 400, 60, 120, 60], chipTally: 6, coin: 10, purchase: [15, 30, 25], error: [50, 40, 50], tap: 5,
+  streak: [15, 25, 15, 25, 30], streakLost: [60, 30, 90], dice: [10, 20, 10, 20, 10, 20, 30], wheelTick: 3, wheelWin: [20, 30, 40], jackpot: [30, 30, 30, 30, 30, 30, 80], near: [20, 40, 20, 40, 60]
 };
-function haptic(cue) {
+function haptic(cue, arg) {
+  if (typeof Sfx !== 'undefined') Sfx.cue(cue, arg);
   try { if (navigator.vibrate && HAPTIC_PATTERNS[cue] && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(HAPTIC_PATTERNS[cue]); } catch (e) { /* egal */ }
 }

@@ -410,3 +410,155 @@ body.crt-full #crt canvas { display: block; position: absolute; inset: 0; width:
 .loadout:not(:has(.badge:not(.empty))) { display: none; }
 .inspect:empty { min-height: 0; margin: 0; }
 @media (max-height: 720px) { .screen { padding-top: 14px; padding-bottom: 30px; } }
+
+/* ===================== JUICE: Topf, Serie, Glücksrad, Würfel, Banner ===================== */
+
+/* ---- HUD: Topf und Serie ---- */
+.bankroll { height: auto; min-height: 56px; }
+.pot { font: 700 12px var(--font); color: var(--cyan); letter-spacing: 1px; text-align: right; margin-top: 1px; white-space: nowrap; }
+.pot .pot-l { color: var(--muted); font-size: 10px; letter-spacing: 2px; }
+.pot #hud-pot { display: inline-block; }
+.pot #hud-pot.pop { animation: pop .3s ease-out; }
+.goal { position: relative; }
+.streak { position: absolute; top: 7px; right: 9px; display: flex; align-items: center; gap: 4px; color: #ffa11a; text-align: left; z-index: 2; }
+.streak[hidden] { display: none; }
+.streak svg { width: 24px; height: 24px; flex: none; filter: drop-shadow(0 0 6px currentColor); transform-origin: 50% 90%; animation: flicker .45s ease-in-out infinite alternate; }
+.streak.lv2 { color: #ff7a1a; } .streak.lv2 svg { width: 30px; height: 30px; }
+.streak.lv3 { color: #ff4a3a; } .streak.lv3 svg { width: 36px; height: 36px; }
+.st-n { font: 700 12px var(--font); letter-spacing: 1px; line-height: 1.1; white-space: nowrap; }
+.st-b { font: 700 9px var(--font); color: var(--muted); letter-spacing: .5px; white-space: nowrap; }
+.streak.grew { animation: streakgrow .7s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes flicker { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.12) rotate(3deg); } }
+@keyframes streakgrow { 30% { transform: scale(1.5); } }
+
+/* ---- Goldener Casino-Knopf ---- */
+.tbtn.big.gold { --c: 255, 214, 90; color: #fff3c4; }
+.tbtn.big.gold:not(:disabled) { animation: btnin .42s cubic-bezier(.2, 1.7, .4, 1) both, breathe 1.6s ease-in-out .5s infinite; }
+.tbtn.big.gold svg { animation: spin360 4s linear infinite; }
+@keyframes spin360 { to { transform: rotate(360deg); } }
+.spinline span:last-child { color: var(--cyan); font-weight: 700; }
+.bank-note { font-size: 12px; text-align: center; color: var(--muted); line-height: 1.4; }
+.bank-note b { color: var(--cyan); }
+
+/* ---- Glücksrad ---- */
+.wheel-ov { position: absolute; inset: 0; z-index: 80; background: rgba(2, 6, 4, .9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; animation: ovin .25s ease-out; }
+@keyframes ovin { from { opacity: 0; } }
+.wheel-title { font: 700 26px var(--font); color: #ffe27a; letter-spacing: 7px; text-shadow: 0 0 16px #ffb800; }
+.wheel-box { position: relative; width: min(84%, 320px); aspect-ratio: 1; }
+.wheel-svg { width: 100%; height: 100%; filter: drop-shadow(0 8px 18px #000); }
+.wheel-ptr { position: absolute; left: 50%; top: -12px; width: 30px; height: 36px; margin-left: -15px; z-index: 3; background: linear-gradient(#fff3b0, #ffb800);
+  clip-path: polygon(0 0, 100% 0, 50% 100%); filter: drop-shadow(0 2px 3px #000); transform-origin: 50% 0; }
+.wheel-ptr.tick { animation: ptrtick .12s ease-out; }
+@keyframes ptrtick { 30% { transform: rotate(-24deg); } }
+.wd { stroke: #ffd678; stroke-width: 1.2; }
+.wd.dark { fill: #12261b; } .wd.gold { fill: #c88b00; } .wd.red { fill: #a81c35; } .wd.jackpot { fill: #ffd34d; animation: jpblink .6s steps(1) infinite; }
+@keyframes jpblink { 50% { fill: #fff4b0; } }
+.wd.win { animation: winpulse .3s ease-in-out infinite alternate; }
+@keyframes winpulse { to { filter: brightness(1.9); } }
+.wl { fill: #ffe9a8; font-family: var(--font); font-weight: 700; text-anchor: middle; }
+.wl.gold, .wl.jackpot { fill: #1a1000; }
+.rim { stroke: #8a5a14; stroke-width: 9; }
+.bulb { fill: #fff3b0; }
+.bulb.b0 { animation: bulbs .5s steps(1) infinite; } .bulb.b1 { animation: bulbs .5s steps(1) infinite reverse; }
+@keyframes bulbs { 50% { fill: #5b4210; } }
+.hub { fill: #ffd34d; stroke: #7a4a00; stroke-width: 2; } .hub2 { fill: #fff4b0; }
+.wheel-res { min-height: 44px; font: 700 28px var(--font); color: #ffe27a; opacity: 0; text-shadow: 0 0 14px #ffb800; letter-spacing: 2px; text-align: center; padding: 0 16px; }
+.wheel-res.show { animation: letterin .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+.wheel-res.jackpot { font-size: 34px; color: #fff; text-shadow: 0 0 20px #ff9a00, 0 0 40px #ffb800; }
+
+/* ---- Lucky Dice ---- */
+.dice-ov { position: absolute; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none;
+  background: rgba(2, 6, 4, .6); animation: ovin .2s ease-out, ovout .3s ease-in 2.1s both; }
+@keyframes ovout { to { opacity: 0; } }
+.die { width: 112px; height: 112px; filter: drop-shadow(0 10px 14px #000); }
+.die svg { width: 100%; height: 100%; display: block; }
+.die-body { fill: #f4ead0; stroke: #8a6b2c; stroke-width: 3; } .die-pip { fill: #8a1020; }
+.die.rolling { animation: dieroll .55s linear infinite; }
+@keyframes dieroll { to { transform: rotate(360deg) scale(1.08); } }
+.die.land { animation: dieland .55s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes dieland { from { transform: scale(1.6) rotate(40deg); } }
+.dice-txt { font: 700 34px var(--font); color: #ffe27a; text-shadow: 0 0 14px #ffb800; min-height: 42px; }
+
+/* ---- Große Schriftzüge (Near-Miss, Serie, ...) ---- */
+.banner { position: absolute; left: 0; right: 0; top: 44%; z-index: 75; text-align: center; pointer-events: none; animation: bnout .35s ease-in 1.75s both; }
+.bn-t { display: flex; justify-content: center; font: 700 36px var(--font); color: #ffe27a; text-shadow: 0 0 16px #ffb800, 0 3px 0 #5a3500; }
+.bn-t span { display: inline-block; animation: letterin .45s cubic-bezier(.2, 1.6, .4, 1) calc(var(--i) * 35ms) both; }
+.bn-s { margin-top: 6px; font: 700 12px var(--font); letter-spacing: 2px; color: #fff; text-shadow: 0 0 8px #000, 0 2px 0 #000; animation: letterin .4s ease-out .45s both; padding: 0 18px; }
+@keyframes bnout { to { opacity: 0; transform: translateY(-14px); } }
+.banner.hot .bn-t { color: #ff9a2a; text-shadow: 0 0 18px #ff5a00, 0 3px 0 #5a1500; }
+.banner.near .bn-t { color: #5ff0ff; text-shadow: 0 0 16px #0aa, 0 3px 0 #044; }
+.banner.lost .bn-t { color: var(--red); text-shadow: 0 0 16px #a00, 0 3px 0 #400; }
+
+/* ---- Schütteln, Blitz, Münzen ---- */
+#phone.shake { animation: phshake .5s cubic-bezier(.36, .07, .19, .97); }
+@keyframes phshake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 2px, 0); } 30%, 50%, 70% { transform: translate3d(-7px, -2px, 0); } 40%, 60% { transform: translate3d(7px, 2px, 0); } }
+.screen-flash { position: absolute; inset: 0; z-index: 78; pointer-events: none; animation: sflash .65s ease-out both; }
+.screen-flash.red { background: radial-gradient(circle, rgba(255, 40, 60, 0) 38%, rgba(255, 40, 60, .55)); }
+@keyframes sflash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+.fly-dot.coin { width: 14px; height: 14px; }
+
+/* ---- Zusammenfassung: Topf verfällt / wird ausgezahlt ---- */
+.sum-title { animation: letterin .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+.pot-big { text-align: center; margin: 12px 0 2px; }
+.pb-l { font: 700 12px var(--font); letter-spacing: 3px; color: var(--muted); }
+.pb-n { font: 700 62px/1.05 var(--font); display: inline-block; }
+.pot-big.good .pb-n { color: var(--green); text-shadow: 0 0 20px rgba(77, 255, 46, .6); animation: letterin .6s cubic-bezier(.2, 1.6, .4, 1) .2s both; }
+.pot-big.lost .pb-n { color: var(--red); text-shadow: 0 0 18px rgba(255, 90, 110, .5); text-decoration: line-through; text-decoration-thickness: 4px; animation: lostshake .5s ease-in-out 2 .8s; }
+.pot-big.lost .pb-n.gone { color: #7a3340; text-shadow: none; text-decoration: none; }
+@keyframes lostshake { 25% { transform: translateX(-6px) rotate(-2deg); } 75% { transform: translateX(6px) rotate(2deg); } }
+.pb-z { font: 700 14px var(--font); color: #fff; letter-spacing: 3px; margin-top: 2px; animation: letterin .5s ease-out 2s both; }
+.near-box { margin-top: 10px; padding: 9px 12px; border: 2px solid var(--cyan); border-radius: 10px; background: rgba(0, 0, 0, .5); text-align: center; animation: letterin .5s ease-out 1.1s both; }
+.nb-t { font: 700 22px var(--font); color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+.nb-s { font-size: 12px; color: #fff; margin-top: 2px; }
+.near-box .bar { height: 12px; margin: 8px 0 4px; }
+.near-box .bar .fill { background: var(--cyan); animation: barfill 1.2s ease-out 1.3s both; }
+@keyframes barfill { from { width: 0; } }
+.nb-p { font-size: 11px; color: var(--muted); }
+.record { text-align: center; font: 700 12px var(--font); color: var(--muted); letter-spacing: 1px; margin-top: 8px; }
+.record.new { color: #ffe27a; text-shadow: 0 0 10px #ffb800; font-size: 15px; animation: nodepulse 1s ease-in-out infinite; }
+@media (max-height: 720px) { .pb-n { font-size: 50px; } .pot-big { margin-top: 4px; } .panel .line:first-child { display: none; } }
+
+/* ---- Sprüche als Sprechblase ---- */
+.hint.quip { display: inline-block; align-self: center; background: rgba(0, 0, 0, .55); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px 12px; color: #fff3d0;
+  font-size: 14px; font-style: italic; font-weight: 400; animation: letterin .4s cubic-bezier(.2, 1.6, .4, 1) both; }
+
+/* ---- Stummschalter in der Punkteanzeige ---- */
+.mute { position: absolute; left: 6px; bottom: 5px; width: 26px; height: 26px; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; opacity: .75; }
+.mute svg { width: 18px; height: 18px; }
+.mute.off { color: var(--red); }
+
+/* ===================== GEGNER MIT PERSÖNLICHKEIT: handgezeichnet + eigene Bewegungen ===================== */
+.opp-avatar, .opp-big { position: relative; overflow: hidden; }
+/* Die Linien "kochen" wie bei einem handgezeichneten Trickfilm: drei Wackel-Filter im Wechsel */
+.opp-avatar svg, .opp-big svg { animation: boil .9s steps(1) infinite, var(--idle, none); }
+@keyframes boil { 0% { filter: url(#wob1); } 33% { filter: url(#wob2); } 66% { filter: url(#wob3); } }
+[data-id="sleepySam"] { --idle: snooze 4.4s ease-in-out infinite; }
+[data-id="slickVic"] { --idle: swagger 3.2s ease-in-out infinite; }
+[data-id="acesCountOne"] { --idle: bobbing 1.8s ease-in-out infinite; }
+[data-id="dealerHitsSoft18"] { --idle: chomp 1.4s ease-in-out infinite; }
+[data-id="noFaceCards"] { --idle: rage 2.3s linear infinite; }
+[data-id="faceDownInitial"] { --idle: blindsway 4s ease-in-out infinite; }
+[data-id="shortHanded"] { --idle: ticktock 1s steps(1) infinite; }
+[data-id="bustTax"] { --idle: jingle 2.4s ease-in-out infinite; }
+.opp-avatar svg, .opp-big svg { transform-origin: 50% 70%; }
+@keyframes snooze { 0%, 100% { transform: rotate(-2deg) translateY(0) scale(1); } 50% { transform: rotate(3deg) translateY(2px) scale(1.04, .97); } }
+@keyframes swagger { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-1px); } }
+@keyframes bobbing { 50% { transform: translateY(-3px) rotate(2deg); } }
+@keyframes chomp { 0%, 62%, 100% { transform: scaleY(1); } 72% { transform: scale(1.04, .88); } 84% { transform: scale(1.06, 1.06); } }
+@keyframes rage { 0%, 78%, 100% { transform: translate(0); } 81% { transform: translate(-2px, 1px) rotate(-2deg); } 85% { transform: translate(2px, -1px) rotate(2deg); } 89% { transform: translate(-2px, 0); } 93% { transform: translate(2px, 1px) rotate(1deg); } }
+@keyframes blindsway { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes ticktock { 0% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes jingle { 0%, 55%, 100% { transform: rotate(0); } 62% { transform: rotate(-5deg) translateY(-2px); } 72% { transform: rotate(5deg); } 82% { transform: rotate(-3deg); } 92% { transform: rotate(2deg); } }
+/* Glanz auf der Sonnenbrille bzw. dem Gold */
+[data-id="slickVic"]::after, [data-id="bustTax"]::after { content: ""; position: absolute; top: -20%; bottom: -20%; left: -60%; width: 32%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .4), transparent); transform: skewX(-20deg); animation: glint 3.6s ease-in-out infinite; }
+[data-id="bustTax"]::after { animation-delay: 1.2s; background: linear-gradient(100deg, transparent, rgba(255, 220, 90, .55), transparent); }
+@keyframes glint { 0%, 60% { left: -60%; } 90%, 100% { left: 140%; } }
+/* Stimmungen: Erschrecken wird roter, Schadenfreude hüpft */
+.opp-avatar.shock { border-color: var(--red); box-shadow: 0 0 18px rgba(255, 90, 110, .8); }
+@media (prefers-reduced-motion: reduce) { .opp-avatar svg, .opp-big svg, .streak svg { animation: none !important; } }
+
+/* Serien-Schild sitzt auf dem oberen Rand der Punkteanzeige (verdeckt keine Zahlen) */
+.streak { top: -19px; right: 12px; padding: 2px 10px 2px 6px; background: #07130d; border: 1.5px solid currentColor; border-radius: 18px; box-shadow: 0 0 14px rgba(255, 120, 20, .35); }
+.streak svg { width: 22px; height: 22px; }
+.streak.lv2 svg { width: 26px; height: 26px; } .streak.lv3 svg { width: 30px; height: 30px; }

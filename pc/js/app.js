@@ -72,6 +72,11 @@ const ACTIONS = {
   'collection': () => goTo('collection'),
   'menu': () => { App.pickingDeck = false; goTo('menu'); },
   'crt': () => { CRT.cycle(); renderApp(); },
+  'sound': () => { Sfx.toggle(); renderApp(); },
+  // Sofort noch eine Runde mit demselben Deck, ohne Umweg über das Menü
+  'again': () => startRun(App.summary && App.meta.unlockedDecks.includes(App.summary.deckType) ? App.summary.deckType : 'house'),
+  'spin': () => spinWheelUI(),
+  'bank': () => App.engine.bankRun(),
   'hit': () => App.engine.hit(),
   'stand': () => App.engine.stand(),
   'double': () => App.engine.doubleDown(),
@@ -103,6 +108,10 @@ const ACTIONS = {
     } else {
       App.inspected = '';
       E.use(item.uid);
+      if (item.kind === 'luckyDice' && E.lastRoll) {
+        App.inspected = 'Lucky Dice: +' + E.lastRoll + ' Mult on this hand!';
+        showDice(E.lastRoll);
+      }
       renderApp();
     }
   }
@@ -167,16 +176,9 @@ document.addEventListener('keydown', e => {
   const E = App.engine;
   if (App.screen !== 'run' || !E) return;
   const k = e.key.toLowerCase();
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  // Ein angeklickter Button darf bei Enter/Leertaste nicht zusätzlich selbst auslösen
-  if (document.activeElement && document.activeElement.blur && document.activeElement !== document.body) document.activeElement.blur();
   if (E.phase === 'playerTurn') {
     if (k === 'h') E.hit(); else if (k === 's') E.stand(); else if (k === 'd') E.doubleDown(); else if (k === 'p') E.split();
-    else if (k === 'r' && E.round.discardsLeft > 0 && E.canBurn) ACTIONS.burn();
-    else if (k === 'escape' && App.burnMode) ACTIONS.burn();
-  } else if (E.phase === 'handResult' && (k === 'enter' || k === ' ')) { e.preventDefault(); E.acknowledgeResult(); }
-  else if (E.phase === 'blindSelect' && (k === 'enter' || k === ' ')) { e.preventDefault(); ACTIONS['play-blind'](); }
-  else if (E.phase === 'roundCleared' && (k === 'enter' || k === ' ')) { e.preventDefault(); ACTIONS['cash-out'](); }
+  } else if (E.phase === 'handResult' && (k === 'enter' || k === ' ')) E.acknowledgeResult();
 });
 
 // ---------- Rendering ----------
@@ -206,12 +208,13 @@ function renderMenu() {
       (Save.hasRun() ? '<button class="tbtn green" data-act="continue">CONTINUE RUN</button>' : '') +
       '<button class="tbtn" data-act="new-run">NEW RUN</button>' +
       '<button class="tbtn" data-act="collection">COMPENDIUM</button>' +
-      '<button class="tbtn dimmed" data-act="crt">CRT EFFECT: ' + CRT.mode.toUpperCase() + '</button></div>';
+      '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
+      '<button class="tbtn dimmed" data-act="crt">CRT: ' + CRT.mode.toUpperCase() + '</button></div></div>';
   }
   appEl().innerHTML = '<div class="screen">' +
     '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div><div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
     '<div class="spacer"></div>' + main + '<div class="spacer"></div>' +
-    '<div class="footer-stats">POINTS ' + m.points + ' | RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + '<br>BEST HAND ' + s.highestHandScore + ' | BOSS STREAK ' + s.bestBossStreak + '</div></div>';
+    '<div class="footer-stats">POINTS ' + m.points + ' | BEST POT ' + (s.bestPot || 0) + ' | BEST STREAK ' + (s.bestStreak || 0) + '<br>RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + ' | BEST HAND ' + s.highestHandScore + '</div></div>';
 }
 
 // ----- Compendium -----
@@ -237,10 +240,10 @@ function renderCollection() {
   }
   h += '<div class="sect">&gt; THE ROGUES\' GALLERY</div>';
   for (const o of OPPONENTS) {
-    h += '<div class="coll-row amber"><div class="opp-avatar">' + icon(o.id, 44) + '</div><div><div class="small bold">' + o.name + '</div><div class="tiny" style="opacity:.8">' + o.intro + '</div></div></div>';
+    h += '<div class="coll-row amber"><div class="opp-avatar" data-id="' + o.id + '">' + icon(o.id, 44) + '</div><div><div class="small bold">' + o.name + '</div><div class="tiny" style="opacity:.8">' + o.intro + '</div></div></div>';
   }
   for (const id of BOSS_IDS) {
-    h += '<div class="coll-row red"><div class="opp-avatar boss">' + icon(id, 44) + '</div><div><div class="small bold">' + BOSSES[id].name.toUpperCase() + '</div><div class="tiny" style="opacity:.85">' + BOSSES[id].rule + '</div></div></div>';
+    h += '<div class="coll-row red"><div class="opp-avatar boss" data-id="' + id + '">' + icon(id, 44) + '</div><div><div class="small bold">' + BOSSES[id].name.toUpperCase() + '</div><div class="tiny" style="opacity:.85">' + BOSSES[id].rule + '</div></div></div>';
   }
   h += '</div><button class="tbtn" style="margin-top:8px" data-act="menu">BACK</button></div>';
   appEl().innerHTML = h;
@@ -250,14 +253,43 @@ function renderCollection() {
 function renderSummary() {
   const s = App.summary;
   const row = (l, v) => '<div class="line"><span>' + l + '</span><span>' + v + '</span></div>';
+  const good = s.won || s.banked;
+  const title = s.won ? 'YOU BROKE THE HOUSE' : s.banked ? 'POT BANKED' : s.abandoned ? 'YOU WALKED AWAY' : 'BUSTED OUT';
+  // Der Topf: bei Gewinn/Bank wird er ausgezahlt, bei Niederlage verfällt er vor den Augen des Spielers
+  let pot;
+  if (good) pot = '<div class="pot-big good"><div class="pb-l">POINTS WON</div><div class="pb-n" id="pot-n">+' + s.pointsEarned + '</div></div>';
+  else pot = '<div class="pot-big lost"><div class="pb-l">' + (s.potReached > 0 ? 'POT LOST' : 'POINTS') + '</div><div class="pb-n" id="pot-n" data-from="' + s.potReached + '">' + s.potReached + '</div>' +
+    '<div class="pb-z">YOU KEEP 0</div></div>';
+  // Knapp daneben: wie weit war das Ziel entfernt?
+  let near = '';
+  if (s.fail && s.fail.short > 0) {
+    near = '<div class="near-box"><div class="nb-t">' + (s.fail.pct >= 70 ? 'SO CLOSE!' : 'NOT QUITE') + '</div>' +
+      '<div class="nb-s">' + s.fail.short + ' POINTS SHORT OF ' + esc(s.fail.name) + '</div>' +
+      '<div class="bar"><div class="fill" style="width:' + s.fail.pct + '%"></div></div><div class="nb-p">' + s.fail.pct + '% OF THE GOAL</div></div>';
+  }
+  const rec = s.newRecord ? '<div class="record new">NEW RECORD! BEST POT ' + s.potReached + '</div>' :
+    '<div class="record">BEST POT ' + App.meta.stats.bestPot + (!good && App.meta.stats.bestPot > s.potReached ? ' &middot; ' + (App.meta.stats.bestPot - s.potReached) + ' TO BEAT IT' : '') + '</div>';
   appEl().innerHTML = '<div class="screen"><div class="spacer"></div>' +
-    '<div class="center huge bold glow ' + (s.won ? 'green' : 'red') + '">' + (s.won ? 'YOU BROKE THE HOUSE' : 'BUSTED OUT') + '</div>' +
-    '<div class="panel amber" style="margin-top:18px;font-size:13px">' +
+    '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec +
+    '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
     row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
-    row('BLINDS CLEARED', s.stats.blindsCleared) + row('HANDS PLAYED', s.stats.handsPlayed) + row('BEST HAND', s.stats.bestHand) +
-    '<div class="hr"></div>' + row('POINTS EARNED', '+' + s.pointsEarned) + '</div>' +
-    '<div style="margin-top:14px">' + s.newUnlocks.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>' +
-    '<div class="spacer"></div><button class="tbtn" data-act="menu">MAIN MENU</button></div>';
+    row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST STREAK', s.stats.bestStreak || 0) + row('BEST HAND', s.stats.bestHand) + '</div>' +
+    '<div style="margin-top:10px">' + s.newUnlocks.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>' +
+    '<div class="spacer"></div><button class="tbtn big green" data-act="again">' + (good ? 'PLAY AGAIN' : 'TRY AGAIN') + '</button>' +
+    '<button class="tbtn dimmed" style="margin-top:8px" data-act="menu">MAIN MENU</button></div>';
+  // Ton, Schütteln, Zahlen zählen
+  if (good) { haptic(s.won ? 'jackpot' : 'wheelWin'); setTimeout(() => coinShower(30, $('#pot-n')), 300); }
+  else { haptic('bust'); shakeScreen(); }
+  const n = $('#pot-n');
+  if (n && n.dataset.from) {
+    const from = Number(n.dataset.from), t0 = performance.now();
+    (function tick(now) {
+      if (!n.isConnected) return;
+      const t = Math.min(1, (now - t0 - 900) / 1100);
+      if (t >= 0) n.textContent = Math.round(from * (1 - t * t));
+      if (t < 1) requestAnimationFrame(tick); else { n.textContent = '0'; n.classList.add('gone'); }
+    })(t0);
+  }
 }
 
 // ----- Run: HUD + Körper -----
@@ -265,9 +297,10 @@ const RUN_SKELETON =
   '<div class="screen" id="runscreen">' +
   '<div class="hud"><div class="hud-top"><div>' +
   '<div class="stepper" id="stepper"></div><div id="hud-blind" class="big bold green glow"></div><div class="pips" id="hud-pips"></div></div>' +
-  '<div class="bankroll"><div class="bk"><div class="tiny dim">MONEY</div><div class="money" id="hud-money"></div></div></div></div>' +
+  '<div class="bankroll"><div class="bk"><div class="tiny dim">MONEY</div><div class="money" id="hud-money"></div>' +
+  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div></div>' +
   // Einfache Punkteanzeige: Stand / Ziel, Balken, und eine Zeile "Chips x Mult"
-  '<div class="goal" id="goal">' +
+  '<div class="goal" id="goal"><div class="streak" id="streak" hidden></div><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
   '<div class="goal-score"><span id="g-score">0</span><span class="goal-of"> / <span id="g-target">0</span></span></div>' +
   '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
   '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
@@ -377,12 +410,43 @@ function updateRoundDisplay(E, blind, inRound) {
   if (pipEl.dataset.sig !== pips) { pipEl.innerHTML = pips; pipEl.dataset.sig = pips; }
 }
 
+const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.5c.6 4.6 5.6 6.6 5.6 12.2a5.6 5.6 0 0 1-11.2 0c0-2.7 1.6-3.9 2.5-6.2.9 1.6 1.7 1.9 2.7 1.3C11.4 6.7 11.2 4.4 12 1.5z"/><path fill="#fff6c8" fill-opacity=".85" d="M12 21a3 3 0 0 1-3-3c0-1.9 1.9-2.8 3-4.8 1.1 2 3 2.9 3 4.8a3 3 0 0 1-3 3z"/></svg>';
+
+// Siegesserie: Flamme in der Punkteanzeige, wächst mit jedem Sieg in Folge
+function updateStreak(E) {
+  const el = $('#streak');
+  if (!el) return;
+  const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
+  let s = E.run.streak || 0;
+  // Solange die Punkte noch gezählt werden, den alten Stand zeigen (kein Spoiler)
+  if (E.phase === 'handResult' && App.tallyDoneKey !== tallyKeyFor(E)) s = E.round.streakBefore || 0;
+  el.hidden = !(inRound && s > 0);
+  if (el.hidden) { el.dataset.s = ''; return; }
+  if (el.dataset.s === String(s)) return;
+  const grew = el.dataset.s !== '' && Number(el.dataset.s) < s;
+  el.dataset.s = String(s);
+  el.className = 'streak lv' + (s >= 5 ? 3 : s >= 3 ? 2 : 1);
+  el.innerHTML = FLAME + '<div><div class="st-n">STREAK ' + s + '</div><div class="st-b">NEXT WIN +' + Math.min(s, Tuning.streakCap) + ' MULT</div></div>';
+  if (grew) { el.classList.add('grew'); setTimeout(() => el.classList.remove('grew'), 700); }
+}
+
 function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
   $('#hud-blind').textContent = E.phase === 'shop' ? 'PAWN SHOP' : BLIND_KINDS[blind.kind].name;
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
+  // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
+  const potEl = $('#hud-pot'), pot = E.potNow;
+  if (potEl.textContent !== String(pot)) { potEl.textContent = pot; popEl(potEl); }
+  updateStreak(E);
+  const mute = $('#mute');
+  if (mute && mute.dataset.m !== String(Sfx.muted)) {
+    mute.dataset.m = String(Sfx.muted);
+    mute.classList.toggle('off', Sfx.muted);
+    mute.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor" fill-opacity=".25"/>' +
+      (Sfx.muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>') + '</svg>';
+  }
   const money = $('#hud-money');
   if (money.textContent !== '$' + E.run.bankroll) {
     money.textContent = '$' + E.run.bankroll;
@@ -393,11 +457,10 @@ function updateHud(E) {
 // ----- Tisch -----
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
-  // PC: Die Kartenfläche ist die rechte Spalte (#body); die Karten dürfen dort viel größer sein
-  const ph = $('#phone'), h = ph.clientHeight, body = $('#body'), w = (body ? body.clientWidth : ph.clientWidth) + 68;
-  if (h < 700) return { d: 66, p: 76, m: 60, w };
-  if (h < 790) return { d: 80, p: 92, m: 72, w };
-  return { d: 116, p: 132, m: 98, w };
+  const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
+  if (h < 700) return { d: 52, p: 56, m: 48, w };
+  if (h < 790) return { d: 62, p: 66, m: 54, w };
+  return { d: 72, p: 76, m: 60, w };
 }
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
@@ -475,8 +538,9 @@ function updateTable(E) {
     // Spruch des Gegners zur Hand
     const outs = r.resolved.map(x => x.outcome);
     const key = outs.every(o => o === 'bust') ? 'bust' : outs.includes('win') ? 'win' : outs.includes('push') ? 'push' : 'lose';
-    hint.textContent = '"' + quipFor(key, E.run.stats.handsPlayed) + '"';
+    hint.textContent = '"' + quipFor(key, E.run.stats.handsPlayed, opp.id) + '"';
     hint.className = 'hint quip';
+    handFeedback(E);
   } else {
     App.tallyToken++; App.tallyKey = null;
     live.classList.add('preview');
@@ -541,16 +605,15 @@ function actionsHtml(E) {
   if (E.phase === 'playerTurn') {
     // Hauptaktionen immer sichtbar, Extras nur wenn sie gerade erlaubt sind
     let extras = '';
-    const kb = k => '<kbd>' + k + '</kbd>';
-    if (E.canDouble) extras += btn('double', 'DOUBLE $' + Tuning.doubleDownCost + kb('D'), true, 'dimmed');
-    if (E.canSplit) extras += btn('split', 'SPLIT' + kb('P'), true, 'dimmed');
-    if (E.round.discardsLeft > 0) extras += btn('burn', (App.burnMode ? 'CANCEL' : 'REROLL (' + E.round.discardsLeft + ')') + kb(App.burnMode ? 'Esc' : 'R'), E.canBurn, App.burnMode ? 'red' : 'dimmed');
+    if (E.canDouble) extras += btn('double', 'DOUBLE $' + Tuning.doubleDownCost, true, 'dimmed');
+    if (E.canSplit) extras += btn('split', 'SPLIT', true, 'dimmed');
+    if (E.round.discardsLeft > 0) extras += btn('burn', App.burnMode ? 'CANCEL' : 'REROLL (' + E.round.discardsLeft + ')', E.canBurn, App.burnMode ? 'red' : 'dimmed');
     return '<div class="col" style="gap:8px;padding-bottom:4px"><div class="row">' +
-      btn('hit', BTN_PLUS + 'HIT' + kb('H'), E.canHit, 'big green') + btn('stand', BTN_HOLD + 'STAND' + kb('S'), E.canStand, 'big') + '</div>' +
+      btn('hit', BTN_PLUS + 'HIT', E.canHit, 'big green') + btn('stand', BTN_HOLD + 'STAND', E.canStand, 'big') + '</div>' +
       (extras ? '<div class="row">' + extras + '</div>' : '') + '</div>';
   }
   if (E.phase === 'dealerTurn') return '<div style="height:52px"></div>';
-  if (E.phase === 'handResult') return '<div style="padding-bottom:4px">' + btn('continue-hand', 'CONTINUE<kbd>Enter</kbd>', true, 'big green') + '</div>';
+  if (E.phase === 'handResult') return '<div style="padding-bottom:4px">' + btn('continue-hand', 'CONTINUE', true, 'big green') + '</div>';
   return '';
 }
 
@@ -580,7 +643,8 @@ function renderPreview(E) {
   if (!hand || hidden) { chips.textContent = '?'; mult.textContent = '?'; return; }
   const v = E.value(hand);
   const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
-  const b = scoreHand({ hand, value: v, outcome: 'win', isNatural: natural, charms: E.run.charms, bankroll: E.run.bankroll, payoutBoost: E.round.payoutBoost });
+  const b = scoreHand({ hand, value: v, outcome: 'win', isNatural: natural, charms: E.run.charms, bankroll: E.run.bankroll, payoutBoost: E.round.payoutBoost,
+    luckMult: E.round.luckMult, streak: E.run.streak || 0 });
   chips.textContent = Math.trunc(b.chips);
   mult.textContent = fmtNum(b.mult * b.factor);
   if (v.isBust) { head.textContent = 'BUST'; head.className = 't-head red'; }
@@ -612,7 +676,7 @@ async function playTally(token, resolved, key) {
   for (let i = 0; i < resolved.length; i++) {
     if (!head.isConnected) return;
     const r = resolved[i];
-    head.textContent = (resolved.length > 1 ? 'HAND ' + (i + 1) + ': ' : '') + OUTCOME_LABEL[r.outcome];
+    head.textContent = (resolved.length > 1 ? 'HAND ' + (i + 1) + ': ' : '') + OUTCOME_LABEL[r.outcome] + (r.total === 0 ? ' - NO POINTS' : '');
     head.className = 't-head ' + (r.outcome === 'bust' || r.outcome === 'lose' ? 'red' : 'green');
     chips.textContent = '0'; mult.textContent = '1';
     const n = r.breakdown.events.length;
@@ -622,7 +686,7 @@ async function playTally(token, resolved, key) {
       const run = runningWithFactor(r.breakdown, step);
       chips.textContent = run.chips; mult.textContent = fmtNum(run.mult);
       popEl(chips); popEl(mult);
-      haptic('chipTally');
+      haptic('chipTally', step);
     }
     await sleep(450);
     if (token !== App.tallyToken) return;
@@ -631,9 +695,80 @@ async function playTally(token, resolved, key) {
   await flyPoints(resolved.reduce((a, r) => a + r.total, 0));
   if (token !== App.tallyToken) return;
   App.tallyDoneKey = key;
-  if (App.engine) updateGoal(App.engine);
+  const E = App.engine;
+  if (E) { updateGoal(E); updateStreak(E); }
   const goal = $('#goal');
-  if (goal) { goal.classList.remove('receive'); void goal.offsetWidth; goal.classList.add('receive'); }
+  const gained = resolved.reduce((a, r) => a + r.total, 0);
+  if (goal && gained > 0) {
+    goal.classList.remove('receive'); void goal.offsetWidth; goal.classList.add('receive');
+    // Münzregen: je größer der Gewinn im Verhältnis zum Ziel, desto mehr Münzen
+    const rel = E ? gained / Math.max(1, E.round.blind.target) : 0.1;
+    coinShower(Math.min(26, 6 + Math.round(rel * 40)), $('#g-score'));
+  }
+  // Serie wächst: kleine Feier
+  if (E && E.round.streakEvent === 'up' && E.run.streak >= 2) {
+    haptic('streak', E.run.streak);
+    showBanner('HOT STREAK x' + E.run.streak, '+' + Math.min(E.run.streak, Tuning.streakCap) + ' MULT ON YOUR NEXT WIN', 'hot');
+  }
+}
+
+// ----- Rückmeldung nach jeder Hand: Verlust soll weh tun, aber sofort Lust auf die nächste Hand machen -----
+function handFeedback(E) {
+  const key = tallyKeyFor(E);
+  if (App.fbKey === key) return;
+  App.fbKey = key;
+  const r = E.round, outs = r.resolved.map(x => x.outcome);
+  const allLost = outs.length && outs.every(o => o === 'lose' || o === 'bust');
+  const stillHere = () => App.screen === 'run' && App.engine === E && E.phase === 'handResult' && App.fbKey === key;
+  if (allLost) { shakeScreen(); flashScreen('red'); }
+  if (r.nearMiss) setTimeout(() => { if (stillHere()) { haptic('near'); showBanner(r.nearMiss.text, r.nearMiss.sub, 'near'); } }, 650);
+  if (r.streakEvent === 'lost') setTimeout(() => { if (stillHere()) { haptic('streakLost'); showBanner('STREAK LOST', r.streakBefore + ' WINS IN A ROW. BUILD IT AGAIN.', 'lost'); } }, r.nearMiss ? 2000 : 650);
+}
+
+function shakeScreen() {
+  const ph = $('#phone');
+  ph.classList.remove('shake'); void ph.offsetWidth; ph.classList.add('shake');
+  setTimeout(() => ph.classList.remove('shake'), 600);
+}
+function flashScreen(tone) {
+  const ph = $('#phone'), f = document.createElement('div');
+  f.className = 'screen-flash ' + tone;
+  ph.appendChild(f);
+  setTimeout(() => f.remove(), 700);
+}
+
+// Großer Schriftzug mit Untertitel in der Mitte (Near-Miss, Serie, Jackpot ...)
+function showBanner(title, sub, tone) {
+  const ph = $('#phone');
+  if (!ph) return;
+  const box = document.createElement('div');
+  box.className = 'banner ' + (tone || '');
+  box.innerHTML = '<div class="bn-t">' + esc(title).split('').map((ch, i) => '<span style="--i:' + i + '">' + (ch === ' ' ? '&nbsp;' : ch) + '</span>').join('') +
+    '</div>' + (sub ? '<div class="bn-s">' + esc(sub) + '</div>' : '');
+  ph.appendChild(box);
+  setTimeout(() => box.remove(), 2100);
+}
+
+// Münzen sprühen aus einem Element und fallen nach unten
+function coinShower(n, fromEl) {
+  const ph = $('#phone');
+  if (!ph || !ph.getBoundingClientRect) return;
+  const p = ph.getBoundingClientRect();
+  const r = fromEl && fromEl.getBoundingClientRect ? fromEl.getBoundingClientRect() : { left: p.left + p.width / 2, top: p.top + p.height / 2, width: 0, height: 0 };
+  const sx = r.left + r.width / 2 - p.left, sy = r.top + r.height / 2 - p.top;
+  const at = (x, y, s) => 'translate(' + x + 'px,' + y + 'px) translate(-50%,-50%) scale(' + s + ')';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'fly-dot coin';
+    ph.appendChild(d);
+    const vx = (Math.random() - 0.5) * 280, up = -(70 + Math.random() * 150), fall = p.height * (0.3 + Math.random() * 0.45);
+    const a = d.animate([
+      { transform: at(sx, sy, 0.5), opacity: 0 },
+      { transform: at(sx + vx * 0.5, sy + up, 1), opacity: 1, offset: 0.28 },
+      { transform: at(sx + vx, sy + fall, 0.8), opacity: 0 }
+    ], { duration: 1000 + Math.random() * 600, delay: Math.random() * 220, easing: 'cubic-bezier(.3,.6,.6,1)', fill: 'both' });
+    a.finished.then(() => d.remove(), () => d.remove());
+  }
 }
 
 // ----- Blind-Auswahl / Cashout / Shop -----
@@ -644,7 +779,7 @@ function blindHtml(E) {
   const ahead = b.boss ? '' :
     '<div class="center small red ahead">' + icon(E.run.bossForAnte, 26) + '<span>BOSS AHEAD: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
   return '<div class="col" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '">' + icon(opp.id, 92) + '</div></div>' +
+    '<div class="center"><div class="opp-big' + (opp.isBoss ? ' boss' : '') + '" data-id="' + opp.id + '">' + icon(opp.id, 92) + '</div></div>' +
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
     '<div class="center small dim" style="margin-top:-6px">' + opp.intro + '</div>' +
     '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
@@ -658,11 +793,114 @@ function cashoutHtml(E) {
   const p = E.cashOut;
   if (!p) return '';
   const line = (l, v) => '<div class="line"><span>' + l + '</span><span>$' + v + '</span></div>';
-  return '<div class="col" style="flex:1;gap:16px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center huge bold green glow">TABLE CLEARED</div>' +
+  const spun = p.spin;
+  const bonus = spun ? '<div class="line spinline"><span>LUCKY SPIN</span><span>' + esc(spun.text) + '</span></div>' : '';
+  // Nach einem Boss: Topf sichern oder weiterspielen (Push your luck)
+  const bank = E.canBank ?
+    '<div class="bank-note">POT <b>' + E.potNow + '</b> PTS. KEEP GOING FOR MORE, BUT A LOST RUN PAYS <b>0</b>.</div>' : '';
+  return '<div class="col" style="flex:1;gap:14px;padding-bottom:6px"><div class="spacer"></div>' +
+    '<div class="center huge bold green glow">' + (E.round.blind.kind === 2 ? 'TABLE CLEARED' : 'BLIND CLEARED') + '</div>' +
     '<div class="panel amber">' + line(BLIND_KINDS[E.round.blind.kind].name + ' REWARD', p.blindReward) + line('UNUSED HANDS', p.handsBonus) +
-    line('INTEREST', p.interest) + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' +
-    '<div class="spacer"></div><button class="tbtn big green" data-act="cash-out">CASH OUT</button></div>';
+    line('INTEREST', p.interest) + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
+    '<div class="spacer"></div>' +
+    (spun ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'SPIN THE WHEEL</button>') +
+    '<button class="tbtn big green" data-act="cash-out">CASH OUT</button>' +
+    (E.canBank ? '<button class="tbtn dimmed" data-act="bank">BANK ' + E.bankValue + ' PTS &amp; QUIT</button>' : '') + '</div>';
+}
+
+const WHEEL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".18"/><circle cx="12" cy="12" r="2"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6M5.6 5.6l4.2 4.2M14.2 14.2l4.2 4.2M18.4 5.6l-4.2 4.2M9.8 14.2l-4.2 4.2" stroke-width="1.3"/></svg>';
+
+// ----- Glücksrad: Rad dreht sich, tickt am Zeiger, bremst ab und zeigt den Gewinn -----
+function spinWheelUI() {
+  const E = App.engine;
+  if (!E || App.spinning) return;
+  const res = E.spinWheel();
+  if (!res) return;
+  App.spinning = true;
+  const N = WHEEL.length, seg = 360 / N, R = 92;
+  const pt = (ang, r) => [r * Math.sin(ang * Math.PI / 180), -r * Math.cos(ang * Math.PI / 180)];
+  let wedges = '', labels = '';
+  WHEEL.forEach((s, i) => {
+    const [x1, y1] = pt(i * seg, R), [x2, y2] = pt((i + 1) * seg, R), mid = (i + 0.5) * seg;
+    wedges += '<path class="wd ' + s.tone + '" id="wd' + i + '" d="M0 0 L' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' A' + R + ' ' + R + ' 0 0 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + ' Z"/>';
+    labels += '<text class="wl ' + s.tone + '" transform="rotate(' + mid + ')" y="-' + (s.label.length > 5 ? 56 : 62) + '" font-size="' + (s.label.length > 5 ? 11 : 15) + '">' + s.label + '</text>';
+  });
+  let bulbs = '';
+  for (let i = 0; i < 16; i++) { const [bx, by] = pt(i * 22.5, 98); bulbs += '<circle class="bulb b' + (i % 2) + '" cx="' + bx.toFixed(1) + '" cy="' + by.toFixed(1) + '" r="2.6"/>'; }
+  const ph = $('#phone');
+  const ov = document.createElement('div');
+  ov.className = 'wheel-ov';
+  ov.innerHTML = '<div class="wheel-title">LUCKY SPIN</div><div class="wheel-box"><div class="wheel-ptr"></div>' +
+    '<svg viewBox="-104 -104 208 208" class="wheel-svg"><g id="wheel-rot">' + wedges + labels + '</g><circle r="97" fill="none" class="rim"/>' + bulbs +
+    '<circle r="13" class="hub"/><circle r="5" class="hub2"/></svg></div><div class="wheel-res" id="wheel-res"></div>';
+  ph.appendChild(ov);
+
+  const rot = ov.querySelector('#wheel-rot');
+  const off = seg * (0.08 + Math.random() * 0.84);      // zufälliger Halt im Feld: manchmal knapp neben dem Jackpot
+  const final = 360 * 5 + (360 - (res.index * seg + off));
+  const T = 4600, t0 = performance.now();
+  let lastSeg = -1, done = false;
+  const ptr = ov.querySelector('.wheel-ptr');
+  const ease = t => 1 - Math.pow(1 - t, 4);
+  function finish() {
+    if (done) return;
+    done = true;
+    rot.style.transform = 'rotate(' + final + 'deg)';
+    const win = ov.querySelector('#wd' + res.index);
+    if (win) win.classList.add('win');
+    const out = ov.querySelector('#wheel-res');
+    out.textContent = res.text;
+    out.className = 'wheel-res show ' + (res.kind === 'jackpot' ? 'jackpot' : '');
+    if (res.kind === 'jackpot') { haptic('jackpot'); coinShower(40, ov.querySelector('.wheel-box')); shakeScreen(); }
+    else { haptic('wheelWin'); coinShower(14, ov.querySelector('.wheel-box')); }
+    const close = () => { if (!ov.isConnected) return; ov.remove(); App.spinning = false; renderApp(); };
+    ov.addEventListener('click', close);
+    setTimeout(close, 2300);
+  }
+  function frame(now) {
+    if (!ov.isConnected) { App.spinning = false; return; }
+    const t = Math.min(1, (now - t0) / T);
+    const ang = final * ease(t);
+    rot.style.transform = 'rotate(' + ang + 'deg)';
+    const under = Math.floor((((360 - (ang % 360)) % 360)) / seg);
+    if (under !== lastSeg) {
+      if (lastSeg !== -1) { haptic('wheelTick', t); ptr.classList.remove('tick'); void ptr.offsetWidth; ptr.classList.add('tick'); }
+      lastSeg = under;
+    }
+    if (t < 1) requestAnimationFrame(frame); else finish();
+  }
+  requestAnimationFrame(frame);
+  // Notfall: auch wenn der Browser Animationen drosselt, kommt das Ergebnis
+  setTimeout(finish, T + 600);
+}
+
+// ----- Lucky Dice: Würfel rollt und bleibt auf der gewürfelten Zahl liegen -----
+function dieSvg(n) {
+  const P = { tl: [28, 28], tr: [72, 28], ml: [28, 50], mr: [72, 50], bl: [28, 72], br: [72, 72], c: [50, 50] };
+  const F = { 1: ['c'], 2: ['tl', 'br'], 3: ['tl', 'c', 'br'], 4: ['tl', 'tr', 'bl', 'br'], 5: ['tl', 'tr', 'c', 'bl', 'br'], 6: ['tl', 'tr', 'ml', 'mr', 'bl', 'br'] };
+  return '<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" class="die-body"/>' +
+    F[n].map(k => '<circle cx="' + P[k][0] + '" cy="' + P[k][1] + '" r="8.5" class="die-pip"/>').join('') + '</svg>';
+}
+function showDice(n) {
+  const ph = $('#phone');
+  if (!ph) return;
+  const box = document.createElement('div');
+  box.className = 'dice-ov';
+  box.innerHTML = '<div class="die rolling"></div><div class="dice-txt"></div>';
+  ph.appendChild(box);
+  const die = box.querySelector('.die');
+  die.innerHTML = dieSvg(1 + Math.floor(Math.random() * 6));
+  const iv = setInterval(() => { die.innerHTML = dieSvg(1 + Math.floor(Math.random() * 6)); }, 75);
+  haptic('dice');
+  setTimeout(() => {
+    clearInterval(iv);
+    die.innerHTML = dieSvg(n);
+    die.classList.remove('rolling'); die.classList.add('land');
+    box.querySelector('.dice-txt').textContent = '+' + n + ' MULT';
+    haptic(n === 6 ? 'jackpot' : 'wheelWin');
+    if (n === 6) coinShower(20, die);
+  }, 950);
+  setTimeout(() => box.remove(), 2400);
 }
 
 // ----- Shop: drei einfache Angebote -----

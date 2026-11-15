@@ -7,10 +7,12 @@
 const Tuning = {
   chipsPerPoint: 10, naturalMult: 5, doubleDownMult: 3, charlieMult: 8,
   foilChips: 30, holoXMult: 1.5, gildedCash: 1,
-  winFactor: 1, pushFactor: 0.5, loseFactor: 0.25,
+  winFactor: 1, pushFactor: 0.5, loseFactor: 0,   // verlorene Hand = 0 Punkte (High Stakes)
+  streakCap: 6,                                   // Siegesserie: +1 Mult je Sieg in Folge, bis max. +6
+  potPerBlind: 10, potPerTable: 50, potPerStreak: 5, potWin: 250,
   doubleDownCost: 3, finalAnte: 8,
-  anteBaseTargets: [300, 800, 2000, 5000, 11000, 20000, 35000, 50000],
-  baseHands: 4, baseDiscards: 3, charmSlots: 5, consumableSlots: 2,
+  anteBaseTargets: [180, 550, 1500, 4200, 11000, 20000, 35000, 50000],
+  baseHands: 5, baseDiscards: 3, charmSlots: 5, consumableSlots: 2,
   startingBankroll: 4, rerollBase: 2, interestStep: 5, interestCap: 5
 };
 
@@ -98,7 +100,8 @@ const CHARM_IDS = Object.keys(CHARMS);
 const CHEATERS = {
   loadTheDice: { name: 'Loaded Dice', text: 'Your next hand pays double.', price: 4, needsCardTarget: false, inRoundOnly: true, tag: 'LD' },
   extraHand: { name: 'Extra Hand', text: 'Get 1 more hand this round.', price: 5, needsCardTarget: false, inRoundOnly: true, tag: 'EH' },
-  freeRerolls: { name: 'Reroll Pack', text: 'Get 2 more rerolls this round.', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'RP' }
+  freeRerolls: { name: 'Reroll Pack', text: 'Get 2 more rerolls this round.', price: 3, needsCardTarget: false, inRoundOnly: true, tag: 'RP' },
+  luckyDice: { name: 'Lucky Dice', text: 'Roll a die: +1 to +6 Mult on this hand.', price: 4, needsCardTarget: false, inRoundOnly: true, tag: 'LU' }
 };
 const CHEATER_IDS = Object.keys(CHEATERS);
 
@@ -265,6 +268,9 @@ function scoreHand(ctx) {
     else if (card.edition === 'holographic') bdAdd(b, shortName(card) + ' Holo', 'xMult', Tuning.holoXMult);
   }
   for (const charm of ctx.charms) applyCharm(charm, ctx, b);
+  if (ctx.luckMult) bdAdd(b, 'Lucky Dice', 'addMult', ctx.luckMult);
+  // Siegesserie: wer mehrere Hände in Folge gewinnt, bekommt mehr Mult (nur bei einem Sieg)
+  if (ctx.outcome === 'win' && ctx.streak > 0) bdAdd(b, 'Hot streak', 'addMult', Math.min(ctx.streak, Tuning.streakCap));
   if (ctx.outcome !== 'win') bdAdd(b, OUTCOME_LABEL[ctx.outcome], 'factor', OUTCOME_FACTOR[ctx.outcome]);
   if (ctx.payoutBoost !== 1) bdAdd(b, 'Loaded Dice', 'factor', ctx.payoutBoost);
   return b;
@@ -302,4 +308,38 @@ const QUIPS = {
   push: ['A tie? Boring.', 'Nobody wins. Yet.'],
   bust: ['Too greedy!', 'Boom! Busted.', 'Ouch. Told you so.']
 };
-function quipFor(outcome, n) { const pool = QUIPS[outcome] || QUIPS.lose; return pool[n % pool.length]; }
+// Jeder Gegner hat eigene Sprüche (win = DU gewinnst die Hand)
+const QUIPS_BY = {
+  sleepySam: { win: ['Zzz... huh? You won?', 'Oh. Nice. *yawn*', 'Wake me when it matters.'], lose: ['*snore*... I win?', 'Easy. Barely looked.', 'Zzz... gotcha.'], bust: ['Over 21? Even I know that.', 'Snooore. Bust!'] },
+  slickVic: { win: ['Lucky. Won\'t last.', 'Cute. Do it again.', 'The shades hide my rage.'], lose: ['Style points to me.', 'Smooth as ever.', 'Cool. Cold. Gone.'], bust: ['Too greedy, kid.', 'Bust. Looks painful.'] },
+  acesCountOne: { win: ['Tch! My aces!', 'Lucky draw, kid.'], lose: ['Aces are mine!', 'Sharpened again.', 'One point. Always one.'], bust: ['Greed cuts deep.', 'Sliced!'] },
+  dealerHitsSoft18: { win: ['I am STILL hungry.', 'Feed me another!'], lose: ['Nom nom nom!', 'Delicious.', 'More chips, please.'], bust: ['Too big to swallow!', 'Burp. Thanks!'] },
+  noFaceCards: { win: ['Blasphemy!', 'No kings for you!'], lose: ['Crushed!', 'Kings fall.', 'Smashed to bits.'], bust: ['Shattered!', 'Smash!'] },
+  faceDownInitial: { win: ['I did not see that.', 'Lucky guess...'], lose: ['Called it. Blind!', 'Can you see me?', 'I felt that one.'], bust: ['Oops. Even I saw it.', 'Bust! Hah!'] },
+  shortHanded: { win: ['Tick. Tock.', 'Time is running out!'], lose: ['Too slow!', 'Time is money.', 'Tick tock, loser.'], bust: ['Out of time AND cards!', 'Tick... bust.'] },
+  bustTax: { win: ['Hmph. Cheap trick.', 'Interest is due.'], lose: ['Pay up!', 'Cha-ching!', 'Taxes, darling.'], bust: ['Bust? That is $3!', 'Invoice sent.'] }
+};
+function quipFor(outcome, n, oppId) {
+  const own = QUIPS_BY[oppId] && QUIPS_BY[oppId][outcome];
+  const pool = own || QUIPS[outcome] || QUIPS.lose;
+  return pool[n % pool.length];
+}
+
+// ---------- Glücksrad (Bonus nach jedem geschafften Blind) ----------
+// Reihenfolge = Reihenfolge auf dem Rad. Der Jackpot sitzt zwischen kleinen Gewinnen: knapp daneben ist oft.
+const WHEEL = [
+  { id: 'c2', label: '$2', kind: 'cash', value: 2, weight: 22, tone: 'dark' },
+  { id: 'dice', label: 'DICE', kind: 'item', item: 'luckyDice', weight: 12, tone: 'gold' },
+  { id: 'c3', label: '$3', kind: 'cash', value: 3, weight: 20, tone: 'dark' },
+  { id: 'x2', label: 'x2', kind: 'double', weight: 9, tone: 'red' },
+  { id: 'c5', label: '$5', kind: 'cash', value: 5, weight: 13, tone: 'dark' },
+  { id: 'hand', label: 'HAND', kind: 'item', item: 'extraHand', weight: 8, tone: 'gold' },
+  { id: 'rr', label: 'REROLL', kind: 'item', item: 'freeRerolls', weight: 11, tone: 'dark' },
+  { id: 'jp', label: 'JACKPOT', kind: 'jackpot', value: 15, weight: 5, tone: 'jackpot' }
+];
+
+// Punkte im Topf: werden nur bei Gewinn oder "Bank" ausgezahlt, bei Niederlage verfallen sie
+function potPoints(stats, won) {
+  return stats.blindsCleared * Tuning.potPerBlind + stats.tablesCleared * Tuning.potPerTable +
+    (stats.bestStreak || 0) * Tuning.potPerStreak + (won ? Tuning.potWin : 0);
+}
