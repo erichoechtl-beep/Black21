@@ -270,7 +270,7 @@ class GameEngine {
     r.resolved = results;
     // Siegesserie: jeder Sieg erhöht sie, jede Niederlage (Lose/Bust) setzt sie auf 0, Push hält sie
     const anyWin = results.some(x => x.outcome === 'win'), anyLoss = results.some(x => x.outcome === 'lose' || x.outcome === 'bust');
-    r.log.push(anyWin ? 'win' : anyLoss ? 'lose' : 'push');
+    r.log.push({ o: anyWin ? 'win' : anyLoss ? 'lose' : 'push', pts: handTotal });
     r.streakBefore = streakBefore;
     r.nearMiss = anyWin ? null : nearMiss;
     if (anyLoss) { this.run.streak = 0; r.streakEvent = streakBefore >= 2 ? 'lost' : ''; }
@@ -575,6 +575,7 @@ class GameEngine {
 function newMeta() {
   return {
     points: 0, xp: 0,
+    owned: { bg: ['felt'], back: ['classic'], face: ['classic'] }, equip: { bg: 'felt', back: 'classic', face: 'classic' },
     unlockedDecks: ['house'],
     unlockedCharms: CHARM_IDS.filter(id => CHARMS[id].unlockAnte === 0),
     discoveredCharms: [],
@@ -606,16 +607,31 @@ function metaApply(meta, summary) {
   st.bestBossStreak = Math.max(st.bestBossStreak, st.currentBossStreak);
 
   const messages = [];
-  const conditions = [['gamblers', st.totalTablesCleared >= 1], ['highRoller', st.totalTablesCleared >= 3], ['cheaters48', st.bestAnteReached >= 5]];
-  for (const [deck, earned] of conditions) {
-    if (earned && !meta.unlockedDecks.includes(deck)) { meta.unlockedDecks.push(deck); messages.push('NEW DECK: ' + DECKS[deck].name); }
-  }
   for (const id of CHARM_IDS) {
     if (!meta.unlockedCharms.includes(id) && st.totalTablesCleared >= CHARMS[id].unlockAnte) {
       meta.unlockedCharms.push(id); messages.push('NEW CHARM: ' + CHARMS[id].name);
     }
   }
   return messages;
+}
+
+// ===== Meta-Shop: Decks und Skins mit Punkten kaufen =====
+function metaBuyDeck(meta, id) {
+  const dk = DECKS[id];
+  if (!dk || meta.unlockedDecks.includes(id) || meta.points < dk.price) return false;
+  meta.points -= dk.price; meta.unlockedDecks.push(id);
+  return true;
+}
+function metaBuySkin(meta, cat, id) {
+  const sk = (SKINS[cat] || []).find(x => x.id === id);
+  if (!sk || meta.owned[cat].includes(id) || meta.points < sk.price) return false;
+  meta.points -= sk.price; meta.owned[cat].push(id);
+  return true;
+}
+function metaEquip(meta, cat, id) {
+  if (!meta.owned[cat] || !meta.owned[cat].includes(id)) return false;
+  meta.equip[cat] = id;
+  return true;
 }
 
 // ===== Speichern (localStorage statt Application Support) =====
@@ -626,6 +642,8 @@ const Save = {
       if (raw) {
         const m = Object.assign(newMeta(), JSON.parse(raw));
         m.xp = m.xp || 0;
+        m.owned = Object.assign({ bg: ['felt'], back: ['classic'], face: ['classic'] }, m.owned || {});
+        m.equip = Object.assign({ bg: 'felt', back: 'classic', face: 'classic' }, m.equip || {});
         // Neue Charms, die schon freigeschaltet sein müssten (z.B. nach einem Update), sofort aufnehmen
         for (const id of CHARM_IDS) if (!m.unlockedCharms.includes(id) && (m.stats.totalTablesCleared || 0) >= CHARMS[id].unlockAnte) m.unlockedCharms.push(id);
         return m;

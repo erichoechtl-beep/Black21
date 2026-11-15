@@ -68,20 +68,59 @@ function hashString(s) { // FNV-1a, damit jede Karte immer gleich "verschlissen"
 
 // ---------- Decks ----------
 const DECKS = {
-  house: { name: "The House Deck", blurb: '52 clean cards. No tricks, no mercy.', unlock: 'Unlocked from the start.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
-  gamblers: { name: "The Gambler's Deck", blurb: '+2 Rerolls every round.', unlock: 'Clear Table 1.', bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
-  highRoller: { name: 'The High Roller Deck', blurb: 'Start with +$10, but 1 fewer Hand per round.', unlock: 'Clear 3 Tables in total.', bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
-  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'All four 2s are gone. Fatter hands, fewer pushes.', unlock: 'Reach Table 5 in a single run.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
+  house: { name: 'The House Deck', blurb: '52 clean cards. No tricks, no mercy.', icon: 'deckHouse', price: 0, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  gamblers: { name: "The Gambler's Deck", blurb: '+2 Rerolls every round.', icon: 'deckGamblers', price: 60, bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
+  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'No 2s. Fatter hands.', icon: 'deck48', price: 80, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  lucky7s: { name: 'Seven Heaven', blurb: '+4 extra 7s. Sevens everywhere.', icon: 'deck7', price: 100, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  highRoller: { name: 'The High Roller Deck', blurb: '+$10 start, 1 fewer hand.', icon: 'deckHigh', price: 120, bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
+  aceHunter: { name: 'Ace Hunter', blurb: '+4 extra Aces. More 21s.', icon: 'deckAce', price: 150, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  royal: { name: 'Royal Court', blurb: '+6 face cards. Big hands, big busts.', icon: 'deckRoyal', price: 150, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  goldRush: { name: 'Gold Rush', blurb: '8 gilded cards pay $1 when drawn.', icon: 'deckGold', price: 200, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  foilFrenzy: { name: 'Foil Frenzy', blurb: '8 foil cards: +30 Chips each.', icon: 'deckFoil', price: 220, bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
 };
 const DECK_IDS = Object.keys(DECKS);
 function buildDeck(deckId) {
   const cards = [];
   for (const suit of SUITS) for (let rank = 1; rank <= 13; rank++) {
     if (deckId === 'cheaters48' && rank === 2) continue;
-    cards.push(makeCard(suit, rank));
+    let ed = 'standard';
+    if (deckId === 'goldRush' && (rank === 5 || rank === 6)) ed = 'gilded';
+    if (deckId === 'foilFrenzy' && (rank === 8 || rank === 9)) ed = 'foil';
+    cards.push(makeCard(suit, rank, ed));
   }
+  if (deckId === 'lucky7s') for (const suit of SUITS) cards.push(makeCard(suit, 7));
+  if (deckId === 'aceHunter') for (const suit of SUITS) cards.push(makeCard(suit, 1));
+  if (deckId === 'royal') for (const suit of ['hearts', 'spades']) for (const rank of [11, 12, 13]) cards.push(makeCard(suit, rank));
   return cards;
 }
+
+// ---------- Skins (Meta-Shop, bezahlt mit Punkten) ----------
+const SKINS = {
+  bg: [
+    { id: 'felt', name: 'Green Felt', price: 0, c1: '#0e2a1b', c2: '#06160f' },
+    { id: 'midnight', name: 'Midnight', price: 30, c1: '#12295a', c2: '#050d1f' },
+    { id: 'wine', name: 'Red Velvet', price: 40, c1: '#52132a', c2: '#1c050d' },
+    { id: 'noir', name: 'Noir', price: 50, c1: '#34343a', c2: '#0a0a0c' },
+    { id: 'royal', name: 'Royal Purple', price: 70, c1: '#42206a', c2: '#12071f' },
+    { id: 'ember', name: 'Ember', price: 90, c1: '#5a2a0e', c2: '#1c0d04' }
+  ],
+  back: [
+    { id: 'classic', name: 'Classic Red', price: 0, a: '#290810', b: '#120208', line: '#ffb000' },
+    { id: 'ocean', name: 'Ocean', price: 25, a: '#0b2f55', b: '#040f1f', line: '#5fd0ff' },
+    { id: 'emerald', name: 'Emerald', price: 25, a: '#0b3d24', b: '#03140b', line: '#66ff86' },
+    { id: 'blackgold', name: 'Black & Gold', price: 45, a: '#1d1a10', b: '#050402', line: '#ffd54a' },
+    { id: 'violet', name: 'Violet', price: 45, a: '#33104f', b: '#12041f', line: '#d79bff' },
+    { id: 'ice', name: 'Ice', price: 60, a: '#17405a', b: '#07202e', line: '#e6faff' }
+  ],
+  face: [
+    { id: 'classic', name: 'Classic', price: 0, s1: '#ede0c2', s2: '#d1bd94' },
+    { id: 'ivory', name: 'Ivory', price: 30, s1: '#fcf8ea', s2: '#e9dfc4' },
+    { id: 'mint', name: 'Mint', price: 35, s1: '#e4f4df', s2: '#b9d8b0' },
+    { id: 'rose', name: 'Rose', price: 35, s1: '#f9e2e2', s2: '#e2b9b9' },
+    { id: 'ice', name: 'Ice', price: 45, s1: '#e3f1ff', s2: '#b2cde8' },
+    { id: 'gold', name: 'Gold Leaf', price: 70, s1: '#f6e6a6', s2: '#d6b25a' }
+  ]
+};
 
 // ---------- Charms (passive Relikte) ----------
 const CHARMS = {

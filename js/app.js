@@ -4,7 +4,7 @@
 
 const App = {
   screen: 'menu', meta: Save.loadMeta(), engine: null, summary: null,
-  pickingDeck: false, abandonArmed: false,
+  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null,
   burnMode: false, pendingTrick: null, inspected: '',
   bodyKey: null, lastPhase: null, lastMoney: null, bjUntil: 0, bjSeen: new Set(),
   dealerTimer: null, tallyToken: 0, tallyKey: null, tallyDoneKey: null, suppressClick: false
@@ -70,6 +70,14 @@ const ACTIONS = {
   'start-deck': t => startRun(t.dataset.deck),
   'continue': continueRun,
   'collection': () => goTo('collection'),
+  'shop': () => goTo('shop'),
+  'shop-tab': t => { App.shopTab = t.dataset.tab; renderApp(); },
+  'buy-deck': t => { if (metaBuyDeck(App.meta, t.dataset.id)) { Save.saveMeta(App.meta); haptic('purchase'); } else haptic('error'); renderApp(); },
+  'buy-skin': t => {
+    if (metaBuySkin(App.meta, t.dataset.cat, t.dataset.id)) { metaEquip(App.meta, t.dataset.cat, t.dataset.id); applySkins(); Save.saveMeta(App.meta); haptic('purchase'); } else haptic('error');
+    renderApp();
+  },
+  'equip-skin': t => { metaEquip(App.meta, t.dataset.cat, t.dataset.id); applySkins(); Save.saveMeta(App.meta); haptic('tap'); renderApp(); },
   'menu': () => { App.pickingDeck = false; goTo('menu'); },
   'crt': () => { CRT.cycle(); renderApp(); },
   'sound': () => { Sfx.toggle(); renderApp(); },
@@ -186,6 +194,7 @@ function renderApp() {
   switch (App.screen) {
     case 'menu': renderMenu(); break;
     case 'collection': renderCollection(); break;
+    case 'shop': renderShop(); break;
     case 'summary': renderSummary(); break;
     case 'run': renderRun(); break;
   }
@@ -196,17 +205,18 @@ function renderMenu() {
   const m = App.meta, s = m.stats;
   let main;
   if (App.pickingDeck) {
-    main = '<div class="col" style="gap:10px"><div class="green bold small">&gt; SELECT DECK</div>' +
+    main = '<div class="col" style="gap:10px;flex:5;min-height:0"><div class="green bold small">&gt; SELECT DECK</div><div class="shop-scroll deck-list">' +
       DECK_IDS.map(id => {
         const d = DECKS[id], ok = m.unlockedDecks.includes(id);
         return '<button class="tbtn left deck-btn ' + (ok ? '' : 'dimmed') + '" data-act="start-deck" data-deck="' + id + '"' + (ok ? '' : ' disabled') + '>' +
-          '<div class="n">' + (ok ? d.name.toUpperCase() : '??? LOCKED') + '</div><div class="b">' + (ok ? d.blurb : d.unlock) + '</div></button>';
-      }).join('') +
+          '<span class="dk-ico">' + icon(d.icon, 34) + '</span><span class="dk-tx"><div class="n">' + d.name.toUpperCase() + '</div><div class="b">' + (ok ? d.blurb : d.price + ' PTS IN THE SHOP') + '</div></span></button>';
+      }).join('') + '</div>' +
       '<button class="tbtn dimmed" data-act="back-deck">BACK</button></div>';
   } else {
     main = '<div class="col" style="gap:12px">' +
       (Save.hasRun() ? '<button class="tbtn green" data-act="continue">CONTINUE RUN</button>' : '') +
       '<button class="tbtn" data-act="new-run">NEW RUN</button>' +
+      '<button class="tbtn" data-act="shop">SHOP <span class="pts-mini">' + m.points + ' PTS</span></button>' +
       '<button class="tbtn" data-act="collection">COMPENDIUM</button>' +
       '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
       '<button class="tbtn dimmed" data-act="crt">CRT: ' + CRT.mode.toUpperCase() + '</button></div></div>';
@@ -216,8 +226,59 @@ function renderMenu() {
     '<div class="bar"><div class="fill" style="width:' + Math.round(rk.into / rk.span * 100) + '%"></div></div></div>';
   appEl().innerHTML = '<div class="screen">' +
     '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div><div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
-    '<div class="spacer"></div>' + (App.pickingDeck ? '' : rankCard + '<div style="height:12px"></div>') + main + '<div class="spacer"></div>' +
+    '<div class="spacer" style="flex:' + (App.pickingDeck ? '.2' : '1') + '"></div>' + (App.pickingDeck ? '' : rankCard + '<div style="height:12px"></div>') + main +
+    '<div class="spacer" style="flex:' + (App.pickingDeck ? '.2' : '1') + '"></div>' +
     '<div class="footer-stats">POINTS ' + m.points + ' | BEST POT ' + (s.bestPot || 0) + '<br>RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + ' | BEST HAND ' + s.highestHandScore + '</div></div>';
+}
+
+// ----- Shop (Meta): Decks und Skins mit Punkten kaufen -----
+function skinPreview(cat, sk) {
+  if (cat === 'bg') return '<div class="sw sw-bg" style="background:radial-gradient(ellipse at 50% 38%,' + sk.c1 + ',' + sk.c2 + ' 78%)"></div>';
+  if (cat === 'back') {
+    let h = '';
+    for (let x = -126; x < 100; x += 8) h += 'M' + x + ' 133 L' + (x + 126) + ' 7 ';
+    return '<svg class="sw sw-card" viewBox="0 0 100 140"><rect width="100" height="140" rx="9" fill="' + sk.b + '"/><rect x="6" y="6" width="88" height="128" rx="5" fill="' + sk.a + '"/>' +
+      '<path d="' + h + '" stroke="' + sk.line + '" stroke-opacity=".35" stroke-width="1.2"/><rect x="5" y="5" width="90" height="130" rx="5" fill="none" stroke="' + sk.line + '" stroke-width="2"/>' +
+      '<circle cx="50" cy="70" r="20" fill="#000" fill-opacity=".8" stroke="' + sk.line + '" stroke-width="2"/></svg>';
+  }
+  return '<svg class="sw sw-card" viewBox="0 0 100 140"><defs><linearGradient id="pv' + sk.id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + sk.s1 + '"/><stop offset="1" stop-color="' + sk.s2 + '"/></linearGradient></defs>' +
+    '<rect width="100" height="140" rx="9" fill="url(#pv' + sk.id + ')"/><text x="12" y="30" font-size="26" font-weight="700" font-family="Menlo,Consolas,monospace" fill="#9e1419">A</text>' +
+    pipG('hearts', 28, 50, 44, '#9e1419', false) + '</svg>';
+}
+function renderShop() {
+  const m = App.meta, tab = App.shopTab || 'decks';
+  const tabs = [['decks', 'DECKS'], ['bg', 'TABLE'], ['back', 'BACKS'], ['face', 'CARDS']];
+  let h = '<div class="screen"><div class="shop-head"><div class="huge bold amber glow">SHOP</div><div class="pts-chip"><span>PTS</span><b>' + m.points + '</b></div></div>' +
+    '<div class="tabs">' + tabs.map(t => '<button class="tab' + (tab === t[0] ? ' on' : '') + '" data-act="shop-tab" data-tab="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
+  if (tab === 'decks') {
+    h += '<div class="shop-scroll sk-list">' + DECK_IDS.map(id => {
+      const d = DECKS[id], own = m.unlockedDecks.includes(id), can = m.points >= d.price;
+      return '<div class="offer ' + (own ? 'sold' : '') + '"><div class="offer-icon badge uncommon" style="cursor:default">' + icon(d.icon, 40) + '</div>' +
+        '<div class="info"><div class="nm">' + d.name.toUpperCase() + '</div><div class="tx">' + d.blurb + '</div></div>' +
+        (own ? '<span class="own">OWNED</span>' : '<button class="tbtn small ' + (can ? 'green' : 'dimmed') + '" data-act="buy-deck" data-id="' + id + '">' + d.price + '</button>') + '</div>';
+    }).join('') + '</div>';
+  } else {
+    const own = m.owned[tab] || [], eq = m.equip[tab];
+    h += '<div class="shop-scroll"><div class="sk-grid">' + SKINS[tab].map(sk => {
+      const has = own.includes(sk.id), on = eq === sk.id, can = m.points >= sk.price;
+      const btn = on ? '<span class="own on">IN USE</span>' : has ? '<button class="tbtn small" data-act="equip-skin" data-cat="' + tab + '" data-id="' + sk.id + '">USE</button>' :
+        '<button class="tbtn small ' + (can ? 'green' : 'dimmed') + '" data-act="buy-skin" data-cat="' + tab + '" data-id="' + sk.id + '">' + sk.price + '</button>';
+      return '<div class="sk-tile' + (on ? ' on' : '') + '">' + skinPreview(tab, sk) + '<div class="sk-nm">' + sk.name.toUpperCase() + '</div>' + btn + '</div>';
+    }).join('') + '</div></div>';
+  }
+  h += '<button class="tbtn" style="margin-top:8px" data-act="menu">BACK</button></div>';
+  appEl().innerHTML = h;
+}
+
+// Gewählte Skins anwenden: Tischfarbe, Kartenrücken, Kartenvorderseite
+function applySkins() {
+  const eq = App.meta.equip || {};
+  const pick = (cat, def) => SKINS[cat].find(s => s.id === eq[cat]) || SKINS[cat][0];
+  const bg = pick('bg'), bk = pick('back'), fc = pick('face');
+  const root = document.documentElement.style;
+  root.setProperty('--felt-light', bg.c1); root.setProperty('--felt', bg.c2); root.setProperty('--bkl', bk.line);
+  const set = (sel, a, b) => { const st = document.querySelectorAll(sel); if (st[0]) st[0].setAttribute('stop-color', a); if (st[1]) st[1].setAttribute('stop-color', b); };
+  set('#backGrad stop', bk.a, bk.b); set('#stock stop', fc.s1, fc.s2);
 }
 
 // ----- Compendium -----
@@ -319,7 +380,7 @@ function renderSummary() {
 const RUN_SKELETON =
   '<div class="screen" id="runscreen">' +
   '<div class="hud"><div class="hud-top"><div>' +
-  '<div class="stepper" id="stepper"></div><div id="hud-blind" class="big bold green glow"></div><div class="pips" id="hud-pips"></div></div>' +
+  '<div class="stepper" id="stepper"></div><div id="hud-blind" class="big bold green glow"></div></div>' +
   '<div class="bankroll"><div class="money-chip"><div class="mc-in"><span class="money" id="hud-money"></span></div></div>' +
   '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div>' +
   // Einfache Punkteanzeige: Stand / Ziel, Balken, und eine Zeile "Chips x Mult"
@@ -328,7 +389,8 @@ const RUN_SKELETON =
   '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
   '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
   '<div class="t-read"><span class="cyan" id="t-chips">0</span><span class="x">x</span><span class="red" id="t-mult">1</span></div></div>' +
-  '</div></div>' +
+  '</div>' +
+  '<div class="track" id="hands-track"></div></div>' +
   '<div id="body"></div></div>';
 
 const TABLE_SKELETON =
@@ -419,21 +481,23 @@ function updateRoundDisplay(E, blind, inRound) {
   const stepper = $('#stepper');
   if (stepper.dataset.sig !== html) { stepper.innerHTML = html; stepper.dataset.sig = html; }
 
-  let pips = '';
+  // Hand-Leiste: gespielt = umgedrehte Karte mit Punkten, jetzt = leuchtende Karte, danach = Kartenrücken
+  const kfmt = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+  let trk = '';
   if (inRound) {
     const total = E.round.totalHands, log = E.round.log || [];
     // Das Ergebnis der gerade gespielten Hand erst zeigen, wenn die Punkte gezählt sind
     const shown = (E.phase === 'handResult' && App.tallyDoneKey !== tallyKeyFor(E)) ? Math.max(0, log.length - 1) : log.length;
-    const current = shown;
     for (let i = 0; i < total; i++) {
       if (i < shown) {
-        const o = log[i];
-        pips += '<span class="hc hf ' + o + (i === shown - 1 ? ' flip' : '') + '">' + (o === 'win' ? '✓' : o === 'lose' ? '✗' : '=') + '</span>';
-      } else pips += '<span class="hc hb' + (i === current ? ' now' : '') + '"></span>';
+        const en = log[i];
+        trk += '<span class="th f ' + en.o + (i === shown - 1 ? ' flip' : '') + '"><b>' + (en.pts > 0 ? '+' + kfmt(en.pts) : '0') + '</b></span>';
+      } else trk += '<span class="th b' + (i === shown ? ' now' : '') + '"><b>' + (i + 1) + '</b></span>';
     }
+    trk = '<div class="trk-cards">' + trk + '</div><div class="trk-left"><b>' + (total - shown) + '</b><span>LEFT</span></div>';
   }
-  const pipEl = $('#hud-pips');
-  if (pipEl.dataset.sig !== pips) { pipEl.innerHTML = pips; pipEl.dataset.sig = pips; }
+  const trkEl = $('#hands-track');
+  if (trkEl && trkEl.dataset.sig !== trk) { trkEl.innerHTML = trk; trkEl.dataset.sig = trk; }
 }
 
 function updateHud(E) {
@@ -463,9 +527,9 @@ function updateHud(E) {
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 46, p: 56, m: 46, w };
-  if (h < 790) return { d: 64, p: 80, m: 58, w };
-  return { d: 70, p: 92, m: 64, w };
+  if (h < 700) return { d: 38, p: 48, m: 40, w };
+  if (h < 790) return { d: 52, p: 66, m: 50, w };
+  return { d: 60, p: 80, m: 56, w };
 }
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
@@ -500,6 +564,7 @@ function updateTable(E) {
   const r = E.round;
   // Gegner: Avatar, Name und (beim Boss) die Regel
   const opp = opponentFor(r.blind);
+  App.backEmblem = opp.id;
   const oppEl = $('#opp');
   if (oppEl.dataset.id !== opp.id) {
     oppEl.innerHTML = icon(opp.id, 60);
@@ -1009,4 +1074,5 @@ function celebrateBlackjack() {
 
 // ---------- Start ----------
 CRT.init();
+applySkins();
 renderApp();

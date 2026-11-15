@@ -853,3 +853,68 @@ svg.px { filter: drop-shadow(0 0 3px rgba(77, 255, 106, .85)); }
 #actions .col { gap: 12px !important; }
 @media (max-height: 720px) { .tbtn.big { min-height: 56px; font-size: 20px; } .tbtn.dimmed { min-height: 44px; } #actions .col, #actions .row { gap: 8px; } }
 @media (max-height: 700px) { .tbtn.big { min-height: 52px; } .tbtn.dimmed { min-height: 40px; } }
+
+/* ===================== RUNDE 8: Hand-Leiste, Shop, Layout ===================== */
+
+/* ---- Gegner kleiner, Luft zu den Karten ---- */
+.opp-avatar { width: 32px; height: 32px; border-radius: 8px; }
+.opp-row { min-height: 34px; margin: 2px 0 8px; }
+/* Meine Hände haben Abstand zu HIT und STAND */
+.hands { margin-bottom: 12px; }
+/* Untere Buttons folgen der Rundung des Rahmens */
+#actions { padding-bottom: 6px; }
+#actions .row + .row { padding: 0 12px; }
+#actions .row + .row .tbtn:first-child { border-radius: 14px 14px 14px 30px; }
+#actions .row + .row .tbtn:last-child { border-radius: 14px 14px 30px 14px; }
+
+/* ---- Hand-Leiste: wo bin ich, wie viele habe ich noch ---- */
+.track { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.track:empty { display: none; }
+.trk-cards { display: flex; gap: 6px; flex: 1; align-items: center; min-width: 0; }
+.th { position: relative; flex: 0 1 38px; height: 50px; min-width: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font: 700 15px var(--font); }
+.th.b { background: repeating-linear-gradient(45deg, #9a1c36 0 3px, #5e0e22 3px 6px); border: 1.5px solid rgba(255, 243, 208, .55); color: rgba(255, 243, 208, .9); opacity: .72; }
+.th.b.now { opacity: 1; color: #fff; border-color: #ffd54a; transform: translateY(-3px) scale(1.14); box-shadow: 0 0 12px #ffd54a, 0 4px 0 rgba(0, 0, 0, .5); animation: nowbob 1.4s ease-in-out infinite; }
+@keyframes nowbob { 50% { transform: translateY(-5px) scale(1.14); } }
+.th.f { background: #fff7dc; border: 2px solid #1d1208; font-size: 12px; }
+.th.f.win { color: #138a2c; border-color: #138a2c; }
+.th.f.lose { color: #d6223a; border-color: #d6223a; background: #ffeaea; }
+.th.f.push { color: #6a6a58; }
+.th.flip { animation: hcflip .5s cubic-bezier(.2, 1.4, .4, 1); }
+.trk-left { display: flex; flex-direction: column; align-items: center; line-height: 1; min-width: 42px; }
+.trk-left b { font-size: 26px; color: var(--amber); }
+.trk-left span { font-size: 10px; letter-spacing: 2px; color: var(--muted); margin-top: 3px; }
+@media (max-height: 700px) { .th { height: 36px; flex-basis: 30px; font-size: 13px; } .th.f { font-size: 10px; } .trk-left b { font-size: 20px; } .trk-left span { font-size: 9px; } }
+
+/* ---- Meta-Shop ---- */
+.shop-head { display: flex; justify-content: space-between; align-items: center; margin: 4px 4px 8px; }
+.pts-chip { display: flex; align-items: baseline; gap: 6px; padding: 4px 14px; border-radius: 20px; background: rgba(0, 0, 0, .5); border: 2px solid var(--amber); }
+.pts-chip span { font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+.pts-chip b { font-size: 20px; color: var(--amber); }
+.tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.tab { flex: 1; min-height: 42px; border-radius: 12px; border: 2px solid rgba(255, 184, 0, .35); background: rgba(0, 0, 0, .3); color: var(--muted); font: 700 12px var(--font); letter-spacing: 1px; cursor: pointer; }
+.tab.on { background: rgba(255, 184, 0, .2); border-color: var(--amber); color: #fff3d0; }
+.own { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--green); padding: 0 6px; white-space: nowrap; }
+.own.on { color: var(--amber); }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sk-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 8px; border-radius: 12px; background: rgba(0, 0, 0, .4); border: 2px solid var(--line); }
+.sk-tile.on { border-color: var(--amber); box-shadow: 0 0 12px rgba(255, 184, 0, .3); }
+.sw { display: block; width: 100%; max-width: 130px; height: 100px; border-radius: 8px; box-shadow: 0 3px 8px rgba(0, 0, 0, .5); }
+.sw-bg { border: 2px solid rgba(255, 255, 255, .12); }
+.sw-card { width: auto; max-width: none; }
+.sk-nm { font-size: 11px; letter-spacing: 1px; font-weight: 700; text-align: center; }
+.sk-tile .tbtn { min-width: 74px; }
+.pts-mini { margin-left: 8px; font-size: 12px; opacity: .7; }
+.deck-list { display: flex; flex-direction: column; gap: 10px; }
+.deck-btn { display: flex; align-items: center; gap: 12px; }
+.dk-ico { flex: none; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(0, 0, 0, .35); }
+.deck-btn.dimmed .dk-ico { opacity: .5; }
+.dk-tx { min-width: 0; }
+/* Platz sparen, damit Hand-Leiste, Karten und Buttons gut passen */
+.th { height: 44px; }
+.tbtn.big { min-height: 62px; }
+.tbtn.dimmed { min-height: 48px; }
+.goal { padding: 8px 14px 10px; }
+.goal-score { font-size: 36px; }
+@media (max-height: 700px) { .th { height: 34px; } .tbtn.big { min-height: 50px; } .tbtn.dimmed { min-height: 40px; } }
+#actions .row + .row .tbtn { font-size: 13px; padding: 0 4px; white-space: nowrap; letter-spacing: .5px; }
+@media (max-height: 700px) { .hands { margin-bottom: 6px; } .opp-row { margin: 0 0 4px; } .hud { gap: 6px; } #actions { padding-bottom: 14px; } }

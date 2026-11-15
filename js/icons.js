@@ -100,7 +100,33 @@ const ICON_48 = {
   // Lucky 7: rote Sieben mit Glitzer (Item)
   lucky7:
     '<text x="24" y="35" font-size="34" ' + T_ATTR + '>7</text>' +
-    '<path d="M40 5 V12 M36.5 8.5 H43.5 M7 7 V12 M4.5 9.5 H9.5 M40 37 V42 M37.5 39.5 H42.5" stroke-width="2"/>'
+    '<path d="M40 5 V12 M36.5 8.5 H43.5 M7 7 V12 M4.5 9.5 H9.5 M40 37 V42 M37.5 39.5 H42.5" stroke-width="2"/>',
+
+  // ---- Deck-Icons ----
+  deckHouse:
+    '<rect x="14" y="8" width="22" height="30" rx="3" ' + SOFT + ' transform="rotate(-12 25 23)"/><rect x="14" y="8" width="22" height="30" rx="3" ' + SOFT + ' transform="rotate(10 25 23)"/>' +
+    '<rect x="13" y="9" width="22" height="30" rx="3" ' + MID + '/><path d="M24 18 l4.5 6.5 -4.5 6.5 -4.5 -6.5z" ' + SOLID + '/>',
+  deckGamblers:
+    '<g transform="rotate(-14 17 30)"><rect x="5" y="19" width="22" height="22" rx="5" ' + SOFT + '/><g ' + SOLID + '><circle cx="11" cy="25" r="2"/><circle cx="21" cy="25" r="2"/><circle cx="11" cy="35" r="2"/><circle cx="21" cy="35" r="2"/><circle cx="16" cy="30" r="2"/></g></g>' +
+    '<g transform="rotate(14 34 17)"><rect x="24" y="6" width="20" height="20" rx="5" ' + MID + '/><g fill="#050806" stroke="none"><circle cx="30" cy="12" r="2"/><circle cx="38" cy="20" r="2"/></g></g>',
+  deckHigh:
+    '<ellipse cx="24" cy="36" rx="13" ry="5" ' + SOFT + '/><ellipse cx="24" cy="29" rx="13" ry="5" ' + SOFT + '/><ellipse cx="24" cy="22" rx="13" ry="5" ' + MID + '/>' +
+    '<path d="M11 36 V22 M37 36 V22"/><text x="24" y="14" font-size="13" ' + T_ATTR + '>$</text>',
+  deck48:
+    '<rect x="10" y="7" width="28" height="34" rx="4" ' + SOFT + '/><text x="24" y="31" font-size="22" ' + T_ATTR + '>2</text><path d="M12 38 L36 10" stroke-width="3.4"/>',
+  deck7:
+    '<text x="24" y="36" font-size="36" ' + T_ATTR + '>7</text><path d="M40 6 V13 M36.5 9.5 H43.5 M6 8 V14 M3 11 H9" stroke-width="2"/>',
+  deckAce:
+    '<rect x="10" y="6" width="28" height="36" rx="4" ' + SOFT + '/><text x="17" y="18" font-size="11" ' + T_ATTR + '>A</text>' +
+    '<path d="M24 20 C17 26 18.5 33 22.6 33 C21.8 35.5 21 36.6 19.4 38 H28.6 C27 36.6 26.2 35.5 25.4 33 C29.5 33 31 26 24 20Z" ' + SOLID + '/>',
+  deckRoyal:
+    '<path d="M8 36 L8 17 L17 26 L24 11 L31 26 L40 17 L40 36Z" ' + MID + '/><path d="M8 41 H40" stroke-width="3"/>' +
+    '<circle cx="8" cy="14" r="2.4" ' + SOLID + '/><circle cx="24" cy="8" r="2.4" ' + SOLID + '/><circle cx="40" cy="14" r="2.4" ' + SOLID + '/>',
+  deckGold:
+    '<path d="M6 38 L12 24 H36 L42 38Z" ' + MID + '/><path d="M14 24 L18 12 H30 L34 24" ' + SOFT + '/><path d="M20 31 H28" stroke-width="2.6"/>' +
+    '<path d="M38 6 V12 M35 9 H41" stroke-width="2"/>',
+  deckFoil:
+    '<path d="M24 4 L28.5 18.5 L44 24 L28.5 29.5 L24 44 L19.5 29.5 L4 24 L19.5 18.5Z" ' + MID + '/>'
 };
 
 function icon(name, size) {

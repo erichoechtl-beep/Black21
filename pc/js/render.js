@@ -129,6 +129,11 @@ function cardFaceSVG(card) {
 }
 
 function cardBackSVG(card) {
+  // Auf dem Rücken sitzt der kleine Gegner (Pixel-Figur); ohne Gegner das alte BJ-Zeichen
+  const eid = (typeof App !== 'undefined' && App.backEmblem) || null;
+  const emblem = eid && typeof ICON_CHAR !== 'undefined' && ICON_CHAR[eid]
+    ? '<svg class="px" x="32" y="52" width="36" height="36" viewBox="0 0 24 24" shape-rendering="crispEdges">' + ICON_CHAR[eid] + '</svg>'
+    : '<text x="50" y="77" font-size="20" font-weight="700" font-family="Menlo,Consolas,monospace" text-anchor="middle" style="fill:var(--bkl,#ffb000)">BJ</text>';
   let hatchA = '', hatchB = '';
   for (let x = 7 - 126; x < 93; x += 5) {
     hatchA += 'M' + x + ' 133 L' + (x + 126) + ' 7 ';
@@ -137,10 +142,10 @@ function cardBackSVG(card) {
   return '<svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">' +
     '<rect width="100" height="140" rx="9" fill="url(#backGrad)"/>' +
     '<clipPath id="bc' + card.id + '"><rect x="7" y="7" width="86" height="126"/></clipPath>' +
-    '<g clip-path="url(#bc' + card.id + ')" stroke="#ffb000" stroke-opacity=".28" stroke-width=".7"><path d="' + hatchA + '"/><path d="' + hatchB + '"/></g>' +
-    '<rect x="5" y="5" width="90" height="130" rx="5" fill="none" stroke="#ffb000" stroke-opacity=".75" stroke-width="1.2"/>' +
-    '<circle cx="50" cy="70" r="22" fill="#000" fill-opacity=".85" stroke="#ffb000" stroke-width="1.2"/>' +
-    '<text x="50" y="77" font-size="20" font-weight="700" font-family="Menlo,Consolas,monospace" text-anchor="middle" fill="#ffb000" style="filter:drop-shadow(0 0 3px #ffb000)">BJ</text>' +
+    '<g clip-path="url(#bc' + card.id + ')" style="stroke:var(--bkl,#ffb000)" stroke-opacity=".28" stroke-width=".7"><path d="' + hatchA + '"/><path d="' + hatchB + '"/></g>' +
+    '<rect x="5" y="5" width="90" height="130" rx="5" fill="none" style="stroke:var(--bkl,#ffb000)" stroke-opacity=".75" stroke-width="1.2"/>' +
+    '<circle cx="50" cy="70" r="22" fill="#000" fill-opacity=".85" style="stroke:var(--bkl,#ffb000)" stroke-width="1.2"/>' +
+    emblem +
     wearSVG(hashString(card.id) ^ 0x9e37, 100, 140, 0.8) +
     '</svg>';
 }
