@@ -192,39 +192,11 @@ function renderApp() {
 }
 
 // ----- Hauptmenü -----
-const MASCOT_LINES = {
-  sleepySam: ['Zzz... oh. A customer.', 'Deal me in. Slowly.', 'Five more minutes...'],
-  slickVic: ['Back for more, kid?', 'Feeling lucky?', 'The house always smiles.'],
-  acesCountOne: ['Sit. Play. Lose.', 'My aces. My rules.'],
-  dealerHitsSoft18: ['Fresh chips! Yum!', 'I am so hungry...'],
-  noFaceCards: ['No kings here!', 'Cards break. So do you.'],
-  faceDownInitial: ['I can feel your hand.', 'Who needs eyes?'],
-  shortHanded: ['Tick tock! Hurry up!', 'Time is money!'],
-  bustTax: ['Taxes, darling.', 'Pay up, pay up!'],
-  nervousNed: ['Oh! Hi! Please be gentle.', 'I am not sweating. You are.'],
-  grannyGail: ['Cookie, dear?', 'Sit down, sweetie.'],
-  tipsyTom: ['Hic! Is this the bar?', 'Cards! Yay!'],
-  cowboyCal: ['Howdy, partner.', 'Care for a round?'],
-  ladyLuck: ['Luck is on my side.', 'Care to gamble, darling?'],
-  rustyRobot: ['BEEP. HELLO, HUMAN.', 'ODDS: NOT IN YOUR FAVOR.']
-};
-const MENU_ICON = {
-  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
-  cont: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12M12 6l6 6-6 6"/></svg>',
-  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" fill-opacity=".2"/><path d="M9 8h6M9 12h6"/></svg>',
-  crt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2" fill="currentColor" fill-opacity=".2"/><path d="M8 21h8"/></svg>'
-};
 function renderMenu() {
   const m = App.meta, s = m.stats;
-  if (!App.mascot) {
-    const ids = OPPONENTS.map(o => o.id).concat(BOSS_IDS);
-    App.mascot = ids[Math.floor(Math.random() * ids.length)];
-    const lines = MASCOT_LINES[App.mascot] || ['Welcome.'];
-    App.mascotLine = lines[Math.floor(Math.random() * lines.length)];
-  }
   let main;
   if (App.pickingDeck) {
-    main = '<div class="col" style="gap:10px"><div class="menu-h">CHOOSE YOUR DECK</div>' +
+    main = '<div class="col" style="gap:10px"><div class="green bold small">&gt; SELECT DECK</div>' +
       DECK_IDS.map(id => {
         const d = DECKS[id], ok = m.unlockedDecks.includes(id);
         return '<button class="tbtn left deck-btn ' + (ok ? '' : 'dimmed') + '" data-act="start-deck" data-deck="' + id + '"' + (ok ? '' : ' disabled') + '>' +
@@ -232,22 +204,20 @@ function renderMenu() {
       }).join('') +
       '<button class="tbtn dimmed" data-act="back-deck">BACK</button></div>';
   } else {
-    main = '<div class="col" style="gap:10px">' +
-      (Save.hasRun() ? '<button class="tbtn big green" data-act="continue"><i class="mi">' + MENU_ICON.cont + '</i>CONTINUE</button>' : '') +
-      '<button class="tbtn big gold" data-act="new-run"><i class="mi">' + MENU_ICON.play + '</i>NEW RUN</button>' +
-      '<button class="tbtn" data-act="collection"><i class="mi sm">' + MENU_ICON.book + '</i>COLLECTION</button>' +
-      '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
-      '<button class="tbtn dimmed" data-act="crt">CRT ' + CRT.mode.toUpperCase() + '</button></div></div>';
+    main = '<div class="col" style="gap:12px">' +
+      (Save.hasRun() ? '<button class="tbtn green" data-act="continue">CONTINUE RUN</button>' : '') +
+      '<button class="tbtn" data-act="new-run">NEW RUN</button>' +
+      '<button class="tbtn" data-act="collection">COMPENDIUM</button>' +
+      '<div class="row"><button class="tbtn dimmed" data-act="sound">SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '</button>' +
+      '<button class="tbtn dimmed" data-act="crt">CRT: ' + CRT.mode.toUpperCase() + '</button></div></div>';
   }
   const rk = rankInfo(m.xp || 0);
   const rankCard = '<div class="rank"><div class="rank-top"><span class="rank-name">' + rk.name + '</span><span class="rank-lv">LV ' + rk.level + '</span></div>' +
     '<div class="bar"><div class="fill" style="width:' + Math.round(rk.into / rk.span * 100) + '%"></div></div></div>';
-  const mascot = '<div class="mascot"><div class="opp-avatar boss" data-id="' + App.mascot + '">' + icon(App.mascot, 80) + '</div><div class="bubble left">' + esc(App.mascotLine) + '</div></div>';
   appEl().innerHTML = '<div class="screen">' +
-    '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div>' +
-    '<div class="suits"><span class="k">&spades;</span><span class="r">&hearts;</span><span class="k">&clubs;</span><span class="r">&diams;</span></div></div>' +
-    '<div class="spacer"></div>' + (App.pickingDeck ? '' : mascot + rankCard + '<div style="height:10px"></div>') + main + '<div class="spacer"></div>' +
-    '<div class="footer-stats">POINTS ' + m.points + ' &middot; BEST POT ' + (s.bestPot || 0) + '</div></div>';
+    '<div class="title"><div class="t1">BLACKJACK</div><div class="t2">R O G U E</div><div class="t3">&gt; UNDERGROUND TABLE No.1<span class="blink"></span></div></div>' +
+    '<div class="spacer"></div>' + (App.pickingDeck ? '' : rankCard + '<div style="height:12px"></div>') + main + '<div class="spacer"></div>' +
+    '<div class="footer-stats">POINTS ' + m.points + ' | BEST POT ' + (s.bestPot || 0) + '<br>RUNS ' + s.runsStarted + ' | WINS ' + s.runsWon + ' | BEST HAND ' + s.highestHandScore + '</div></div>';
 }
 
 // ----- Compendium -----
@@ -311,7 +281,8 @@ function renderSummary() {
   appEl().innerHTML = '<div class="screen"><div class="spacer"></div>' +
     '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec + rankGain +
     '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
-    row('TABLE', s.anteReached + '/' + Tuning.finalAnte) + row('BLINDS', s.stats.blindsCleared) + row('BEST HAND', s.stats.bestHand) + '</div>' +
+    row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
+    row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST HAND', s.stats.bestHand) + '</div>' +
     '<div style="margin-top:10px">' + s.newUnlocks.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>' +
     '<div class="spacer"></div><button class="tbtn big green" data-act="again">' + (good ? 'PLAY AGAIN' : 'TRY AGAIN') + '</button>' +
     '<button class="tbtn dimmed" style="margin-top:8px" data-act="menu">MAIN MENU</button></div>';
@@ -468,7 +439,7 @@ function updateRoundDisplay(E, blind, inRound) {
 function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
-  $('#hud-blind').textContent = E.phase === 'shop' ? 'SHOP' : BLIND_KINDS[blind.kind].name;
+  $('#hud-blind').textContent = E.phase === 'shop' ? 'PAWN SHOP' : BLIND_KINDS[blind.kind].name;
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
   // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
@@ -844,19 +815,17 @@ function blindHtml(E) {
   const b = currentBlind(E.run), rules = rulesFor(b.boss), kind = BLIND_KINDS[b.kind];
   const opp = opponentFor(b);
   const hands = Math.max(1, E.handsPerRound - rules.handsPenalty);
-  const perk = (ic, n) => '<span class="perk">' + ic + '<b>' + n + '</b></span>';
-  const HAND_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5" fill="currentColor" fill-opacity=".25"/></svg>';
   const ahead = b.boss ? '' :
-    '<div class="ahead">' + icon(E.run.bossForAnte, 30) + '<span>BOSS: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
-  return '<div class="col blindsel" style="flex:1;gap:10px;padding-bottom:6px">' +
-    '<div class="blind-name"><div class="kind">' + (opp.isBoss ? 'BOSS' : kind.name) + '</div><div class="nm ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div></div>' +
-    '<div class="bubble">' + esc(opp.intro) + '</div>' +
-    '<div class="goalrow"><div class="goal-chip"><span>GOAL</span><b>' + b.target + '</b></div><div class="perks">' +
-    perk('<i class="pk-s">$</i>', kind.reward) + perk(HAND_ICO, hands) + perk(icon('freeRerolls', 18), E.discardsPerRound) + '</div></div>' +
+    '<div class="center small red ahead">' + icon(E.run.bossForAnte, 26) + '<span>BOSS AHEAD: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
+  return '<div class="col blindsel" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' +
+    '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
+    '<div class="center small dim" style="margin-top:-6px">' + esc(opp.intro) + '</div>' +
+    '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
+    '<div class="small dim" style="margin-top:4px">REWARD $' + kind.reward + ' &middot; ' + hands + ' HANDS &middot; ' + E.discardsPerRound + ' REROLLS</div></div>' +
     ahead + '<div class="spacer"></div>' +
     slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') +
     '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
-    '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP') + '</button></div>';
+    '<button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'REALLY GIVE UP? TAP AGAIN' : 'GIVE UP RUN') + '</button></div>';
 }
 
 function cashoutHtml(E) {
@@ -867,13 +836,13 @@ function cashoutHtml(E) {
   const bonus = spun ? '<div class="line spinline"><span>LUCKY SPIN</span><span>' + esc(spun.text) + '</span></div>' : '';
   // Nach einem Boss: Topf sichern oder weiterspielen (Push your luck)
   const bank = E.canBank ?
-    '<div class="bank-note">POT <b>' + E.potNow + '</b>. A LOST RUN KEEPS <b>0</b>.</div>' : '';
+    '<div class="bank-note">POT <b>' + E.potNow + '</b> PTS. KEEP GOING FOR MORE, BUT A LOST RUN PAYS <b>0</b>.</div>' : '';
   return '<div class="col" style="flex:1;gap:14px;padding-bottom:6px"><div class="spacer"></div>' +
-    '<div class="center huge bold green glow cleared">' + (E.round.blind.kind === 2 ? 'TABLE CLEARED' : 'CLEARED!') + '</div>' +
-    '<div class="panel amber">' + line('REWARD', p.blindReward) + (p.handsBonus ? line('SPARE HANDS', p.handsBonus) : '') +
-    (p.interest ? line('INTEREST', p.interest) : '') + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
+    '<div class="center huge bold green glow">' + (E.round.blind.kind === 2 ? 'TABLE CLEARED' : 'BLIND CLEARED') + '</div>' +
+    '<div class="panel amber">' + line(BLIND_KINDS[E.round.blind.kind].name + ' REWARD', p.blindReward) + line('UNUSED HANDS', p.handsBonus) +
+    line('INTEREST', p.interest) + bonus + '<div class="hr"></div>' + line('TOTAL', p.total) + '</div>' + bank +
     '<div class="spacer"></div>' +
-    (spun || !p.spinEarned ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'LUCKY SPIN</button>') +
+    (spun || !p.spinEarned ? '' : '<button class="tbtn big gold" data-act="spin">' + WHEEL_ICON + 'SPIN THE WHEEL</button>') +
     '<button class="tbtn big green" data-act="cash-out">CASH OUT</button>' +
     (E.canBank ? '<button class="tbtn dimmed" data-act="bank">BANK ' + E.bankValue + ' PTS &amp; QUIT</button>' : '') + '</div>';
 }
@@ -950,7 +919,7 @@ function offerDetail(item) { return item.type === 'charm' ? CHARMS[item.kind].te
 
 function shopHtml(E) {
   const run = E.run;
-  let h = '<div class="shop-scroll"><div class="cage">THE CAGE</div>';
+  let h = '<div class="shop-scroll"><div class="sect" style="margin-top:4px">FOR SALE</div>';
   for (const o of run.shop ? run.shop.offers : []) {
     const isCharm = o.item.type === 'charm';
     const visual = isCharm
@@ -962,7 +931,7 @@ function shopHtml(E) {
   }
   h += slotHtml(E) + itemRowHtml(E) + detailHtml(E, true);
   h += '</div><div class="row" style="margin-top:8px;padding-bottom:6px"><button class="tbtn" data-act="reroll">REFRESH $' + (run.shop ? run.shop.rerollCost : Tuning.rerollBase) + '</button>' +
-    '<button class="tbtn green" data-act="leave-shop">NEXT</button></div>';
+    '<button class="tbtn green" data-act="leave-shop">NEXT BLIND</button></div>';
   return h;
 }
 

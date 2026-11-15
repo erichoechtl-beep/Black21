@@ -68,10 +68,10 @@ function hashString(s) { // FNV-1a, damit jede Karte immer gleich "verschlissen"
 
 // ---------- Decks ----------
 const DECKS = {
-  house: { name: "The House Deck", blurb: 'Classic 52 cards.', unlock: 'Open from the start.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
-  gamblers: { name: "The Gambler's Deck", blurb: '+2 rerolls each round.', unlock: 'Clear Table 1.', bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
-  highRoller: { name: 'The High Roller Deck', blurb: '+$10 start, 1 fewer hand.', unlock: 'Clear 3 Tables in total.', bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
-  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'No 2s. Fatter hands.', unlock: 'Reach Table 5 in a single run.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
+  house: { name: "The House Deck", blurb: '52 clean cards. No tricks, no mercy.', unlock: 'Unlocked from the start.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 },
+  gamblers: { name: "The Gambler's Deck", blurb: '+2 Rerolls every round.', unlock: 'Clear Table 1.', bonusHands: 0, bonusDiscards: 2, bonusBankroll: 0 },
+  highRoller: { name: 'The High Roller Deck', blurb: 'Start with +$10, but 1 fewer Hand per round.', unlock: 'Clear 3 Tables in total.', bonusHands: -1, bonusDiscards: 0, bonusBankroll: 10 },
+  cheaters48: { name: "Cheater's 48-Card Deck", blurb: 'All four 2s are gone. Fatter hands, fewer pushes.', unlock: 'Reach Table 5 in a single run.', bonusHands: 0, bonusDiscards: 0, bonusBankroll: 0 }
 };
 const DECK_IDS = Object.keys(DECKS);
 function buildDeck(deckId) {

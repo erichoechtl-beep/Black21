@@ -85,11 +85,8 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 /* ---- Runde 3 ---- */
 .opp-avatar svg.char, .opp-big svg.char { width: 100%; height: 100%; }
 .opp-avatar { width: 72px; height: 72px; } .opp-big { width: 190px; height: 190px; }
-.mascot .opp-avatar { width: 110px; height: 110px; }
-.bubble { font-size: 15px; }
 .slot { max-width: 520px; margin-left: auto; margin-right: auto; }
 .hand-total { font-size: 30px; }
 .item-chip { width: 50px; height: 50px; } .item-chip svg { width: 28px; height: 28px; }
 .mreel { width: 30px; height: 30px; } .mreel svg { width: 22px; height: 22px; }
-.perk { font-size: 17px; }
 .detail { max-width: 520px; margin-left: auto; margin-right: auto; }
