@@ -1096,3 +1096,45 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 .scoreboard .goal-live .t-read { font-size: 26px; }
 .scoreboard .track { margin-top: 6px; }
 .hands { margin-bottom: 2px; }
+
+/* ===================== RUNDE 11: Wege auf der Karte, Hand-Leiste in der Mitte, passender Tisch ===================== */
+
+/* ---- Karte: Wege wie kleine Straßen ---- */
+.rd, .rc { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.rd { stroke-width: 12; }
+.rd.dim { stroke: rgba(80, 56, 26, .55); }
+.rc.dim { stroke: rgba(255, 240, 200, .2); stroke-width: 2; stroke-dasharray: 5 9; }
+.rd.path { stroke: #1f5a2a; }
+.rc.path { stroke: #7dff6a; stroke-width: 3.5; filter: drop-shadow(0 0 3px #4dff2e); }
+.rd.next { stroke: #6a4d12; }
+.rc.next { stroke: #ffe27a; stroke-width: 3.5; stroke-dasharray: 8 8; filter: drop-shadow(0 0 3px #ffd54a); animation: mdash 1s linear infinite; }
+.map { background:
+  radial-gradient(ellipse at 20% 80%, rgba(60, 110, 50, .18), transparent 55%),
+  radial-gradient(ellipse at 80% 30%, rgba(110, 80, 40, .2), transparent 55%),
+  radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, .05), rgba(0, 0, 0, .3)); }
+
+/* ---- Hand-Leiste in der Tischmitte: zwischen Dealer und meiner Hand ---- */
+.center-panel { flex-direction: column; gap: 4px; min-height: 0; margin: 6px 0; }
+.center-panel .track { width: 100%; justify-content: center; gap: 14px; margin: 0; }
+.center-panel .trk-cards { flex: 0 1 auto; gap: 6px; justify-content: center; }
+.th { flex: 0 0 34px; height: 44px; min-width: 24px; }
+.trk-left { flex-direction: row; align-items: baseline; gap: 5px; min-width: 0; }
+.trk-left b { font-size: 26px; }
+.trk-left span { margin: 0; font-size: 11px; }
+.scoreboard .track { display: none; }
+
+/* ---- Platzsparender Modus: wird automatisch aktiv, wenn nicht alles in den Rahmen passt ---- */
+#phone.compact .tbtn.big { min-height: 48px; font-size: 19px; }
+#phone.compact .tbtn.dimmed { min-height: 38px; }
+#phone.compact #actions .col, #phone.compact #actions .row { gap: 8px; }
+#phone.compact #actions { padding-bottom: 12px; }
+#phone.compact .th { height: 34px; flex-basis: 28px; font-size: 13px; }
+#phone.compact .th.f { font-size: 10px; }
+#phone.compact .trk-left b { font-size: 20px; }
+#phone.compact .opp-row { min-height: 36px; } #phone.compact .opp-avatar { width: 34px; height: 34px; }
+#phone.compact .hands { margin-bottom: 2px; }
+#phone.compact .hud { gap: 4px; }
+#phone.compact .ht-n { font-size: 20px; }
+#phone.compact .scoreboard .goal { padding: 5px 12px; }
+#phone.compact .scoreboard .goal-score { font-size: 28px; }
+#phone.compact .loadout .item-chip { width: 34px; height: 34px; }

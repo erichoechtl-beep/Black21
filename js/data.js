@@ -234,9 +234,33 @@ function generateMapData(rng, ante) {
   }
   for (let f = 1; f < MAP_FLOORS - 1; f++) { const row = floors[f]; if (row[0].t === row[1].t && row[1].t === row[2].t) row[1].t = row[1].t === 'fight' ? 'event' : 'fight'; }
   // Abwechslung: mindestens ein Shop und ein Ereignis auf den Wahl-Etagen 2-3
-  const has = t => floors.slice(1, 3).some(row => row.some(n => n.t === t));
-  if (!has('shop')) floors[1][rng.int(3)].t = 'shop';
-  if (!has('event')) { const row = floors[2], k = rng.int(3); if (row[k].t !== 'shop' || row.some(n => n.t !== 'shop')) row[k].t = 'event'; }
+  // Ein Shop ist fast immer in Reichweite: Etage 1 hat mindestens einen, Etage 2 mindestens zwei
+  const ensureShops = (row, k) => {
+    let have = row.filter(n => n.t === 'shop').length;
+    for (const i of rng.shuffle([0, 1, 2])) { if (have >= k) break; if (row[i].t !== 'shop') { row[i].t = 'shop'; have++; } }
+  };
+  ensureShops(floors[1], 1); ensureShops(floors[2], 1);
+  // Jeder Weg bis zum Boss kommt an mindestens einem Shop vorbei
+  const shopless = () => {
+    const bad = [];
+    const walk = (f, i, trail, hasShop) => {
+      const n = floors[f][i], t = trail.concat([[f, i]]), s = hasShop || n.t === 'shop';
+      if (f === floors.length - 1) { if (!s) bad.push(t); return; }
+      for (const j of n.nx) walk(f + 1, j, t, s);
+    };
+    for (let i = 0; i < floors[0].length; i++) walk(0, i, [], false);
+    return bad;
+  };
+  for (let g = 0; g < 12; g++) {
+    const bad = shopless();
+    if (!bad.length) break;
+    const pick = bad[0][1 + rng.int(2)];
+    floors[pick[0]][pick[1]].t = 'shop';
+  }
+  if (!floors.slice(1, 3).some(row => row.some(n => n.t === 'event'))) {
+    const c = floors[1].concat(floors[2]).filter(n => n.t !== 'shop');
+    if (c.length) c[rng.int(c.length)].t = 'event';
+  }
   return { ante, floors, cur: null };
 }
 

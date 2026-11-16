@@ -4,7 +4,7 @@
 
 const App = {
   screen: 'menu', meta: Save.loadMeta(), engine: null, summary: null,
-  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [],
+  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [], fit: 1, fitTries: 0, fitRaf: 0,
   burnMode: false, pendingTrick: null, inspected: '',
   bodyKey: null, lastPhase: null, lastMoney: null, bjUntil: 0, bjSeen: new Set(),
   dealerTimer: null, tallyToken: 0, tallyKey: null, tallyDoneKey: null, suppressClick: false
@@ -408,7 +408,7 @@ const TABLE_SKELETON =
   '<div class="opp-info"><div class="tag" id="opp-name"></div><div class="opp-rule" id="boss"></div></div>' +
   '<span class="num" id="dealer-total"></span></div>' +
   '<div class="cards-row" id="dealer-cards"></div>' +
-  '<div class="center-panel" id="center"><div class="hint" id="hint"></div></div>' +
+  '<div class="center-panel" id="center"><div class="track" id="hands-track"></div><div class="hint" id="hint"></div></div>' +
   '<div class="hands" id="player-hands"></div>' +
   '<div class="scoreboard">' +
   '<div class="goal" id="goal"><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
@@ -416,8 +416,7 @@ const TABLE_SKELETON =
   '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
   '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
   '<div class="t-read"><span class="cyan" id="t-chips">0</span><span class="x">x</span><span class="red" id="t-mult">1</span></div>' +
-  '<div class="t-fx" id="t-fx"></div></div></div>' +
-  '<div class="track" id="hands-track"></div></div>' +
+  '<div class="t-fx" id="t-fx"></div></div></div></div>' +
   '<div id="loadout"></div><div id="actions"></div></div>';
 
 function fxPills(b) {
@@ -457,7 +456,7 @@ function renderRun() {
   const body = $('#body');
   if (key !== 'table') { App.tallyToken++; App.tallyKey = null; }
   if (key === 'table') {
-    if (App.bodyKey !== 'table') body.innerHTML = TABLE_SKELETON;
+    if (App.bodyKey !== 'table') { body.innerHTML = TABLE_SKELETON; App.fitTries = 0; }
     updateTable(E);
   } else if (key === 'map') {
     body.innerHTML = mapHtml(E);
@@ -559,11 +558,27 @@ function updateHud(E) {
 // ----- Tisch -----
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
-  const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 48, p: 50, m: 40, w };
-  if (h < 790) return { d: 62, p: 58, m: 46, w };
-  return { d: 74, p: 72, m: 54, w };
+  const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth, f = App.fit || 1;
+  const k = Math.max(0, Math.min(1.25, (h - 667) / 145));
+  const d = Math.max(34, Math.round((48 + 26 * k) * f)), p = Math.max(38, Math.round((50 + 22 * k) * f));
+  return { d, p, m: Math.round(p * 0.75), w };
 }
+
+// Passt alles in den Rahmen? Sonst werden die Karten schrittweise kleiner (und wieder größer, wenn Platz ist)
+function fitTable() {
+  const act = $('#actions'), ph = $('#phone');
+  if (!act || !ph || App.screen !== 'run' || App.bodyKey !== 'table') return;
+  const h = ph.clientHeight, compact = h < 700 || App.fit < 0.85;
+  ph.classList.toggle('compact', App.fit < 0.85);
+  const need = compact ? 112 : 132;                                   // so hoch sind die Buttons unten
+  const over = act.getBoundingClientRect().top + need - (ph.getBoundingClientRect().bottom - 46);
+  let changed = false;
+  if (over > 2 && App.fit > 0.5 && App.fitTries < 12) { App.fit = Math.max(0.5, App.fit - Math.max(0.03, over / 320)); changed = true; }
+  else if (over < -90 && App.fit < 1 && App.fitTries < 12) { App.fit = Math.min(1, App.fit + 0.04); changed = true; }
+  if (changed) { App.fitTries++; if (App.engine) updateTable(App.engine); }
+}
+function fitSoon() { if (App.fitRaf) return; App.fitRaf = requestAnimationFrame(() => { App.fitRaf = 0; fitTable(); }); }
+window.addEventListener('resize', () => { App.fit = 1; App.fitTries = 0; if (App.screen === 'run') renderApp(); });
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
 function syncCards(container, cards, width, avail, faceUpFn, highlight) {
@@ -688,6 +703,7 @@ function updateTable(E) {
   // Nur neu zeichnen, wenn sich die Knöpfe wirklich ändern (sonst starten die Animationen ständig neu)
   const aEl = $('#actions'), ah = actionsHtml(E);
   if (aEl.dataset.h !== ah) { aEl.innerHTML = ah; aEl.dataset.h = ah; }
+  fitSoon();
 }
 
 // ----- Items sehen aus wie Casino-Chips, Charms wie Walzen eines Spielautomaten -----
@@ -917,7 +933,9 @@ function coinShower(n, fromEl) {
 const NODE_ICON = { fight: 'nodeFight', elite: 'nodeElite', shop: 'nodeShop', event: 'nodeEvent', boss: 'nodeBoss' };
 function nodePos(m, f, i) {
   const n = m.floors[f].length, F = m.floors.length;
-  return { x: n === 1 ? 50 : [20, 50, 80][i], y: 8 + (F - 1 - f) / (F - 1) * 84 };   // Start unten, Boss oben
+  // leicht versetzt, damit die Karte wie ein Gelände aussieht und nicht wie ein Raster (stabil pro Knoten)
+  const h = (a, b) => { const s = Math.sin((m.ante * 31 + f * 17 + i * 7 + a) * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); };
+  return { x: (n === 1 ? 50 : [20, 50, 80][i]) + (n === 1 ? 0 : (h(1, 2) - .5) * 12), y: 8 + (F - 1 - f) / (F - 1) * 84 + (h(3, 4) - .5) * 7 };   // Start unten, Boss oben
 }
 function mapHtml(E) {
   const run = E.run, m = run.map, reach = E.reachable;
@@ -930,7 +948,9 @@ function mapHtml(E) {
       let cls = 'dim';
       if (n.done && tn.done) cls = 'path';
       else if (m.cur && m.cur.f === f && m.cur.i === i && isReach(f + 1, j)) cls = 'next';
-      lines += '<line class="ml ' + cls + '" x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" vector-effect="non-scaling-stroke"/>';
+      const bend = ((f * 3 + i * 5 + j * 7 + m.ante) % 5 - 2) * 4.5;
+      const dd = 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' Q' + ((a.x + b.x) / 2 + bend).toFixed(1) + ' ' + ((a.y + b.y) / 2).toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
+      lines += '<path class="rd ' + cls + '" d="' + dd + '"/><path class="rc ' + cls + '" d="' + dd + '"/>';
     });
     const reachable = isReach(f, i), isCur = !!m.cur && m.cur.f === f && m.cur.i === i;
     const cls = 'mnode t-' + n.t + (n.done ? ' done' : '') + (reachable ? ' reach' : '') + (isCur ? ' cur' : '') + (!n.done && !reachable ? ' locked' : '');

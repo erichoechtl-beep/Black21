@@ -4,10 +4,10 @@
 
 // Kartengrößen: Die Kartenfläche ist die rechte Spalte (#body), dort dürfen die Karten viel größer sein
 window.layoutSizes = function () {
-  const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 46, p: 50, m: 40, w };
-  if (h < 790) return { d: 58, p: 62, m: 48, w };
-  return { d: 70, p: 76, m: 56, w };
+  const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth, f = App.fit || 1;
+  const k = Math.max(0, Math.min(1.2, (h - 640) / 180));
+  const d = Math.max(34, Math.round((46 + 24 * k) * f)), pp = Math.max(38, Math.round((50 + 26 * k) * f));
+  return { d, p: pp, m: Math.round(pp * 0.75), w };
 };
 
 // Tastenkürzel auf den Buttons anzeigen
