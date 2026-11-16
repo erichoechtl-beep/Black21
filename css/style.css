@@ -1138,3 +1138,47 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 #phone.compact .scoreboard .goal { padding: 5px 12px; }
 #phone.compact .scoreboard .goal-score { font-size: 28px; }
 #phone.compact .loadout .item-chip { width: 34px; height: 34px; }
+
+/* ===================== RUNDE 12: Kopfzeile mit Gegner und Hand-Leiste, Karte sauber skaliert ===================== */
+
+/* ---- Kopf: Gegner genau einmal, darunter die große Hand-Leiste ---- */
+.hud-l { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.hud-av .opp-avatar { width: 46px; height: 46px; }
+.hud-tx { min-width: 0; }
+#hud-blind { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud .opp-rule { font-size: 10px; color: var(--muted); line-height: 1.2; max-width: 210px; }
+.hud .opp-rule:empty { display: none; }
+.hud .track { margin: 6px 0 0; padding: 6px 10px; background: rgba(0, 0, 0, .38); border: 1px solid var(--line); border-radius: 12px; justify-content: space-between; gap: 10px; }
+.hud .track:empty { display: none; }
+.hud .trk-cards { flex: 1; gap: 6px; justify-content: flex-start; }
+.hud .th { flex: 0 0 34px; height: 46px; }
+.hud .trk-left { flex-direction: row; align-items: baseline; gap: 5px; }
+.hud .trk-left b { font-size: 28px; }
+.hud .trk-left span { font-size: 11px; margin: 0; }
+.dealer-row { position: relative; }
+.dealer-row .num { position: absolute; right: 2px; top: 2px; z-index: 3; font-size: 20px; font-weight: 700; padding: 2px 12px; min-width: 46px; text-align: center; border-radius: 18px; background: #07130d; border: 2px solid var(--line); }
+.dealer-row .num:empty { display: none; }
+.dealer-row .num.bust { color: var(--red); border-color: var(--red); }
+#phone.compact .hud .th { height: 36px; flex-basis: 28px; font-size: 13px; }
+#phone.compact .hud .th.f { font-size: 10px; }
+#phone.compact .hud .trk-left b { font-size: 22px; }
+#phone.compact .hud-av .opp-avatar { width: 38px; height: 38px; }
+#phone.compact .hud .track { padding: 4px 8px; margin-top: 4px; }
+
+/* ---- Karte: Knoten und Wege wachsen und schrumpfen mit der Fläche ---- */
+.map { --ns: 52px; position: relative; flex: 1; min-height: 0; }
+.map-in { position: absolute; inset: calc(var(--ns) * .7) 8px calc(var(--ns) * .7 + 14px); }
+.mnode { width: var(--ns); height: var(--ns); margin: calc(var(--ns) / -2) 0 0 calc(var(--ns) / -2); }
+.mnode svg { width: calc(var(--ns) * .55); height: calc(var(--ns) * .55); }
+.mnode.t-boss { width: calc(var(--ns) * 1.2); height: calc(var(--ns) * 1.2); margin: calc(var(--ns) * -.6) 0 0 calc(var(--ns) * -.6); }
+.mnode.t-boss svg { width: calc(var(--ns) * .7); height: calc(var(--ns) * .7); }
+.rd { stroke-width: calc(var(--ns) * .2); }
+.map-gear { display: flex; align-items: center; gap: 8px; margin: 0 4px; }
+.map-gear .mini-reels { flex: 1; justify-content: center; }
+.mreel.emp { background: transparent; border: 1px dashed rgba(255, 255, 255, .18); opacity: .6; cursor: default; }
+.mapwrap .inspect { text-align: center; }
+.hud-top > .hud-l { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.hud-top { align-items: center; }
+.hud-top > div.hud-l:first-child { flex-direction: row; align-items: center; gap: 10px; }
+#phone.compact .scoreboard .goal .bar { height: 6px; margin: 2px 0; }
+@media (max-height: 640px) { #phone .t-fx { display: none; } #phone .scoreboard .goal-live .t-read { font-size: 22px; } }

@@ -6,7 +6,7 @@
 window.layoutSizes = function () {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth, f = App.fit || 1;
   const k = Math.max(0, Math.min(1.2, (h - 640) / 180));
-  const d = Math.max(34, Math.round((46 + 24 * k) * f)), pp = Math.max(38, Math.round((50 + 26 * k) * f));
+  const d = Math.max(40, Math.round((52 + 40 * k) * f)), pp = Math.max(44, Math.round((56 + 44 * k) * f));
   return { d, p: pp, m: Math.round(pp * 0.75), w };
 };
 

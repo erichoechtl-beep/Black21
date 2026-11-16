@@ -4,7 +4,7 @@
 
 const App = {
   screen: 'menu', meta: Save.loadMeta(), engine: null, summary: null,
-  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [], fit: 1, fitTries: 0, fitRaf: 0,
+  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [], fit: 1, fitTries: 0, fitRaf: 0, compact: false,
   burnMode: false, pendingTrick: null, inspected: '',
   bodyKey: null, lastPhase: null, lastMoney: null, bjUntil: 0, bjSeen: new Set(),
   dealerTimer: null, tallyToken: 0, tallyKey: null, tallyDoneKey: null, suppressClick: false
@@ -395,20 +395,18 @@ function renderSummary() {
 // ----- Run: HUD + Körper -----
 const RUN_SKELETON =
   '<div class="screen" id="runscreen">' +
-  '<div class="hud"><div class="hud-top"><div class="hud-l">' +
-  '<div id="hud-blind" class="big bold green glow"></div><div class="stepper" id="stepper"></div></div>' +
+  '<div class="hud"><div class="hud-top"><div class="hud-l"><div class="hud-av" id="hud-av" hidden><div class="opp-avatar" id="opp"></div></div>' +
+  '<div class="hud-tx"><div id="hud-blind" class="big bold green glow"></div><div class="stepper" id="stepper"></div><div class="opp-rule" id="boss"></div></div></div>' +
   '<div class="bankroll"><div class="money-chip"><div class="mc-in"><span class="money" id="hud-money"></span></div></div>' +
-  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div></div>' +
+  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div>' +
+  '<div class="track" id="hands-track"></div></div>' +
   '<div id="body"></div></div>';
 
 // Reihenfolge am Tisch: Gegner (einmal) > Dealer-Karten > meine Hand > Anzeigetafel > Charms/Items > Buttons
 const TABLE_SKELETON =
   '<div id="table" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
-  '<div class="opp-row"><div class="opp-avatar" id="opp"></div>' +
-  '<div class="opp-info"><div class="tag" id="opp-name"></div><div class="opp-rule" id="boss"></div></div>' +
-  '<span class="num" id="dealer-total"></span></div>' +
-  '<div class="cards-row" id="dealer-cards"></div>' +
-  '<div class="center-panel" id="center"><div class="track" id="hands-track"></div><div class="hint" id="hint"></div></div>' +
+  '<div class="dealer-row"><div class="cards-row" id="dealer-cards"></div><span class="num" id="dealer-total"></span></div>' +
+  '<div class="center-panel" id="center"><div class="hint" id="hint"></div></div>' +
   '<div class="hands" id="player-hands"></div>' +
   '<div class="scoreboard">' +
   '<div class="goal" id="goal"><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
@@ -460,6 +458,7 @@ function renderRun() {
     updateTable(E);
   } else if (key === 'map') {
     body.innerHTML = mapHtml(E);
+    fitMap();
   } else if (key === 'event') {
     body.innerHTML = eventHtml(E);
   } else if (key === 'blind') {
@@ -508,7 +507,8 @@ function updateGoal(E) {
 
 // Wo bin ich? "TABLE 2/8", die drei Gegner dieses Tisches als Weg, und Punkte für die Hände der Runde
 function updateRoundDisplay(E, blind, inRound) {
-  const html = '<span class="tbl">TABLE ' + Math.min(blind.ante, Tuning.finalAnte) + '<i>/' + Tuning.finalAnte + '</i></span>';
+  const kindLbl = blind.boss ? 'BOSS' : blind.elite ? 'ELITE' : 'FIGHT';
+  const html = '<span class="tbl">' + (inRound ? kindLbl + ' &middot; ' : '') + 'TABLE ' + Math.min(blind.ante, Tuning.finalAnte) + '<i>/' + Tuning.finalAnte + '</i></span>';
   const stepper = $('#stepper');
   if (stepper && stepper.dataset.sig !== html) { stepper.innerHTML = html; stepper.dataset.sig = html; }
 
@@ -535,7 +535,9 @@ function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
   const labels = { map: 'MAP', shop: 'SHOP', event: 'EVENT' };
-  $('#hud-blind').textContent = labels[E.phase] || (blind.elite ? 'ELITE' : BLIND_KINDS[blind.kind].name);
+  $('#hud-blind').textContent = labels[E.phase] || (inRound ? opponentFor(blind).name : (blind.elite ? 'ELITE' : BLIND_KINDS[blind.kind].name));
+  const av = $('#hud-av'); if (av) av.hidden = !inRound;
+  const bossEl = $('#boss'); if (bossEl && !inRound) bossEl.textContent = '';
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
   // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
@@ -560,25 +562,42 @@ function updateHud(E) {
 function layoutSizes() {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth, f = App.fit || 1;
   const k = Math.max(0, Math.min(1.25, (h - 667) / 145));
-  const d = Math.max(34, Math.round((48 + 26 * k) * f)), p = Math.max(38, Math.round((50 + 22 * k) * f));
+  const d = Math.max(40, Math.round((50 + 34 * k) * f)), p = Math.max(44, Math.round((54 + 34 * k) * f));
   return { d, p, m: Math.round(p * 0.75), w };
 }
 
-// Passt alles in den Rahmen? Sonst werden die Karten schrittweise kleiner (und wieder größer, wenn Platz ist)
+// Passt alles in den Rahmen? Erst wird der Tisch kompakter, dann werden die Karten ein wenig kleiner (nie winzig).
 function fitTable() {
-  const act = $('#actions'), ph = $('#phone');
-  if (!act || !ph || App.screen !== 'run' || App.bodyKey !== 'table') return;
-  const h = ph.clientHeight, compact = h < 700 || App.fit < 0.85;
-  ph.classList.toggle('compact', App.fit < 0.85);
-  const need = compact ? 112 : 132;                                   // so hoch sind die Buttons unten
-  const over = act.getBoundingClientRect().top + need - (ph.getBoundingClientRect().bottom - 46);
+  const tbl = $('#table'), ph = $('#phone');
+  if (!tbl || !ph || App.screen !== 'run' || App.bodyKey !== 'table') return;
+  const tight = App.compact || ph.clientHeight < 700;
+  // Natürliche Höhe aller festen Teile (Mitte ist der Puffer). Buttons und Charm-Leiste zählen immer mit ihrer Normalhöhe.
+  let need = 14;
+  for (const ch of tbl.children) {
+    if (ch.id === 'center') continue;
+    const cs = getComputedStyle(ch);
+    let h = ch.getBoundingClientRect().height;
+    if (ch.id === 'actions') h = Math.max(h, tight ? 112 : 132);
+    if (ch.id === 'loadout') h = Math.max(h, 38);
+    need += h + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+  }
+  const avail = Math.min(tbl.clientHeight, ph.getBoundingClientRect().bottom - 46 - tbl.getBoundingClientRect().top);
+  const slack = avail - need;
   let changed = false;
-  if (over > 2 && App.fit > 0.5 && App.fitTries < 12) { App.fit = Math.max(0.5, App.fit - Math.max(0.03, over / 320)); changed = true; }
-  else if (over < -90 && App.fit < 1 && App.fitTries < 12) { App.fit = Math.min(1, App.fit + 0.04); changed = true; }
+  if (slack < 0 && App.fitTries < 16) {                 // zu wenig Platz: erst kompakter, dann Karten etwas kleiner (nie winzig)
+    if (!App.compact) App.compact = true;
+    else if (App.fit > 0.72) App.fit = Math.max(0.72, App.fit + slack / 260);
+    else App.fitTries = 99;
+    changed = true;
+  } else if (slack > 24 && App.fitTries < 16) {         // viel Platz übrig: Karten wieder größer
+    if (App.fit < 1.12) { App.fit = Math.min(1.12, App.fit + 0.04); changed = true; }
+    else if (App.compact && slack > 70) { App.compact = false; changed = true; }
+  }
+  ph.classList.toggle('compact', !!App.compact || ph.clientHeight < 700);
   if (changed) { App.fitTries++; if (App.engine) updateTable(App.engine); }
 }
 function fitSoon() { if (App.fitRaf) return; App.fitRaf = requestAnimationFrame(() => { App.fitRaf = 0; fitTable(); }); }
-window.addEventListener('resize', () => { App.fit = 1; App.fitTries = 0; if (App.screen === 'run') renderApp(); });
+window.addEventListener('resize', () => { App.fit = 1; App.fitTries = 0; App.compact = false; if (App.screen === 'run') renderApp(); });
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
 function syncCards(container, cards, width, avail, faceUpFn, highlight) {
@@ -619,7 +638,6 @@ function updateTable(E) {
     oppEl.dataset.id = opp.id;
     oppEl.className = 'opp-avatar' + (opp.isBoss ? ' boss' : '');
   }
-  $('#opp-name').textContent = opp.name;
   $('#boss').textContent = opp.isBoss ? opp.intro : '';
   // Stimmung des Gegners: angespannt beim Aufdecken, schadenfroh oder erschrocken nach der Hand
   let mood = '';
@@ -646,7 +664,7 @@ function updateTable(E) {
   // Die verdeckte Karte zittert und glüht, bis sie aufgedeckt wird
   const hole = $('#dealer-cards').children[1];
   if (hole) hole.classList.toggle('suspense', E.phase === 'dealerTurn' && !r.dealerHoleRevealed);
-  $('#player-hands').style.minHeight = (size.p * 1.4 + 46) + 'px';
+  $('#player-hands').style.minHeight = (size.p * 1.4 + 34) + 'px';
 
   // Mitte: kurzer Hinweis. Die Punkte stehen oben in der festen Zielanzeige.
   const hint = $('#hint'), live = $('#g-live');
@@ -959,12 +977,28 @@ function mapHtml(E) {
       (reachable ? '<span class="mlab">' + NODE_INFO[n.t].name + '</span>' : '') + (isCur ? '<span class="mlab you">YOU</span>' : '') + '</button>';
   }));
   const legend = ['fight', 'elite', 'shop', 'event', 'boss'].map(t => '<span class="lg t-' + t + '">' + icon(NODE_ICON[t], 16) + NODE_INFO[t].name + '</span>').join('');
-  return '<div class="col mapwrap" style="flex:1;min-height:0;gap:8px;padding-bottom:4px">' +
+  return '<div class="col mapwrap" style="flex:1;min-height:0;gap:6px;padding-bottom:2px">' +
     '<div class="map-title"><b>TABLE ' + run.ante + '</b><span>' + (m.cur ? 'PICK YOUR NEXT STOP' : 'CHOOSE YOUR PATH') + '</span></div>' +
-    '<div class="map"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div>' +
-    '<div class="legend">' + legend + '</div>' +
-    '<div class="map-gear">' + slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') + '</div>' +
+    '<div class="map"><div class="map-in"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div></div>' +
+    '<div class="legend">' + legend + '</div>' + mapGearHtml(E) +
     '<div class="row"><button class="tbtn dimmed" data-act="menu">MENU</button><button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'SURE? TAP AGAIN' : 'GIVE UP') + '</button></div></div>';
+}
+// Kleine Leiste mit deinen Charms (Walzen) und Items (Chips), statt der großen Maschine
+function mapGearHtml(E) {
+  let reels = '';
+  for (let i = 0; i < Tuning.charmSlots; i++) {
+    const c = E.run.charms[i];
+    reels += c ? '<div class="mreel ' + CHARMS[c.kind].rarity + '" title="' + esc(CHARMS[c.kind].name + ': ' + CHARMS[c.kind].text) + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 20) + '</div>' : '<div class="mreel emp"></div>';
+  }
+  const chips = E.run.consumables.map(it => itemChipHtml(it.kind, '', '', '')).join('');
+  return '<div class="map-gear"><div class="mini-reels">' + reels + '</div><div class="sp"></div><div class="chips-row">' + chips + '</div></div><div class="inspect">' + esc(App.inspected) + '</div>';
+}
+// Knotengröße aus der verfügbaren Fläche: nichts ragt aus dem Bild
+function fitMap() {
+  const map = $('.map');
+  if (!map) return;
+  const W = map.clientWidth, H = map.clientHeight;
+  map.style.setProperty('--ns', Math.max(34, Math.min(64, Math.min(W / 5.4, H / 5.6))).toFixed(1) + 'px');
 }
 
 // ----- Ereignisse -----
@@ -1053,22 +1087,7 @@ function rouletteSpinUI() {
 
 // ----- Hand-Anzeige: Wertigkeit auf einen Blick -----
 function handBadgeHtml(E, hand, active) {
-  const hv = E.value(hand), hid = E.round.rules.hidesFirstCard && E.phase === 'playerTurn';
-  const num = E.displayTotal(hand) + (hand.isDoubled ? ' x2' : '');
-  if (hid) return '<span class="ht-n">' + num + '</span>';
-  let tag;
-  if (hv.isBust) tag = 'BUST';
-  else if (hv.isTwentyOneInTwo && !hand.isFromSplit) tag = 'BLACKJACK';
-  else if (hv.total === 21) tag = 'PERFECT';
-  else if (hv.total >= 17) tag = hv.isSoft ? 'SOFT' : 'STRONG';
-  else if (hv.total >= 12) tag = 'RISKY';
-  else tag = 'DRAW';
-  let risk = '';
-  if (active && E.phase === 'playerTurn' && E.canHit && !hv.isBust && hv.total < 21) {
-    const pc = E.bustChance();
-    risk = '<span class="ht-r r' + (pc >= 50 ? 3 : pc >= 25 ? 2 : 1) + '">' + pc + '% BUST</span>';
-  }
-  return '<span class="ht-n">' + num + '</span><span class="ht-t">' + tag + '</span>' + risk;
+  return '<span class="ht-n">' + E.displayTotal(hand) + (hand.isDoubled ? ' x2' : '') + '</span>';
 }
 
 // ----- Blind-Auswahl / Cashout / Shop -----

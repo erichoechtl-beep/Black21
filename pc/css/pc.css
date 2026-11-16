@@ -103,9 +103,6 @@ body { background: radial-gradient(ellipse at 50% 30%, #10261b 0%, #050b08 60%, 
 #runscreen:not(:has(#table)) #body { align-items: stretch; }
 #runscreen:not(:has(#table)) #body > * { max-width: 620px; margin-left: auto; margin-right: auto; }
 .opp-avatar { width: 48px; height: 48px; }
-.map { min-height: 300px; }
-.mnode { width: 64px; height: 64px; margin: -32px 0 0 -32px; } .mnode svg { width: 34px; height: 34px; }
-.mnode.t-boss { width: 80px; height: 80px; margin: -40px 0 0 -40px; }
 .rl-wheel { width: min(46%, 250px); }
 .opp-row { min-height: 50px; margin-top: 0; }
 .money-chip { width: 66px; height: 66px; } .money-chip .money { font-size: 20px; }
