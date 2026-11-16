@@ -15,11 +15,14 @@ function newRunState(deckId, charmPool, seed, bonusCash) {
     consumables: [],
     charmPool: charmPool.slice(),
     shop: null,
-    checkpoint: 'blindSelect',
+    checkpoint: 'map',
+    pending: null,
+    event: null,
     stats: { handsPlayed: 0, bestHand: 0, blindsCleared: 0, tablesCleared: 0, bestStreak: 0 },
     streak: 0,
     rngState: 0
   };
+  run.map = generateMapData(rng, 1);
   run.rngState = rng.state;
   return run;
 }
@@ -29,7 +32,7 @@ class GameEngine {
     this.run = run;
     this.rng = new RNG(run.rngState);
     this.hooks = hooks || {};            // onChange, feedback, onCheckpoint, onRunEnded, onDiscovery
-    this.phase = run.checkpoint === 'shop' ? 'shop' : 'blindSelect';
+    this.phase = ({ map: 'map', shop: 'shop', event: 'event' })[run.checkpoint] || 'blindSelect';
     this.round = this.placeholderRound();
     this.cashOut = null;
     this.summary = null;
@@ -43,9 +46,13 @@ class GameEngine {
     run.stats.bestStreak = run.stats.bestStreak || 0;
     run.charms = run.charms.filter(c => CHARMS[c.kind]);
     run.consumables = run.consumables.filter(c => CHEATERS[c.kind]);
-    if (run.shop && run.shop.offers.some(o => !(o.item.type === 'charm' || (o.item.type === 'cheater' && CHEATERS[o.item.kind])))) {
+    if (run.shop && run.shop.offers.some(o => !(o.item.type === 'charm' || o.item.type === 'edition' || (o.item.type === 'cheater' && CHEATERS[o.item.kind])))) {
       run.shop = null;
     }
+    // Alte Spielstände ohne Karte starten auf der Karte; unvollständige Zustände fallen auf die Karte zurück
+    if (!run.map) { run.map = generateMapData(this.rng, run.ante || 1); run.pending = null; run.event = null; run.blindKind = 0; run.shop = null; this.phase = 'map'; run.checkpoint = 'map'; }
+    if (this.phase === 'blindSelect' && !run.pending) { this.phase = 'map'; run.checkpoint = 'map'; }
+    if (this.phase === 'event' && !run.event) { this.phase = 'map'; run.checkpoint = 'map'; }
     if (this.phase === 'shop' && !run.shop) this.generateShop();
   }
 
@@ -312,11 +319,11 @@ class GameEngine {
 
   // ----- Auszahlung & Fortschritt -----
   prepareCashOut() {
-    const reward = BLIND_KINDS[this.round.blind.kind].reward;
+    const reward = BLIND_KINDS[this.round.blind.kind].reward;   // Elite zahlt mehr (siehe BLIND_KINDS)
     const handsBonus = Math.max(0, this.round.handsLeft);
     const interest = Math.min(Math.floor(this.run.bankroll / Tuning.interestStep), Tuning.interestCap);
     // Das Glücksrad gibt es nicht immer: nach jedem Boss sicher, sonst nur manchmal
-    const spinEarned = this.round.blind.kind === 2 || this.rng.chance(0.3);
+    const spinEarned = this.round.blind.kind >= 1 || this.rng.chance(0.3);
     this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, spinEarned };
     this.fb('win');
   }
@@ -329,30 +336,138 @@ class GameEngine {
     const blind = this.round.blind;
     const runComplete = blind.kind === 2 && blind.ante >= Tuning.finalAnte;
     if (blind.kind === 2) run.stats.tablesCleared += 1;
-    if (!runComplete) this.advanceBlind();
+    if (!runComplete) { this.completeNode(); if (blind.kind === 2) this.nextTable(); }
     if (!this.fire({ type: 'cashedOut', runComplete })) return;
     this.cashOut = null;
     this.fb('coin');
     if (runComplete) this.finishRun(true);
-    else { this.generateShop(); run.checkpoint = 'shop'; this.checkpoint(); }
+    else { run.checkpoint = 'map'; this.round = this.placeholderRound(); this.checkpoint(); }
     this.emit();
   }
 
-  advanceBlind() {
-    const run = this.run;
-    if (run.blindKind === 0) run.blindKind = 1;
-    else if (run.blindKind === 1) run.blindKind = 2;
+  // Wie wahrscheinlich ist ein Bust, wenn ich jetzt eine Karte ziehe? (aus den noch nicht gezogenen Karten)
+  bustChance() {
+    const h = this.activeHand, pile = this.round.drawPile;
+    if (!h || !pile.length) return 0;
+    let bust = 0;
+    for (const c of pile) if (evaluateHand(h.cards.concat([c]), this.round.rules).isBust) bust++;
+    return Math.round(bust / pile.length * 100);
+  }
+
+  // ===== Karte: Knoten wählen =====
+  get reachable() {
+    const m = this.run.map;
+    if (!m) return [];
+    if (!m.cur) return m.floors[0].map((_, i) => ({ f: 0, i }));
+    return m.floors[m.cur.f][m.cur.i].nx.map(i => ({ f: m.cur.f + 1, i }));
+  }
+  isReachable(f, i) { return this.reachable.some(r => r.f === f && r.i === i); }
+
+  chooseNode(f, i) {
+    if (this.phase !== 'map' || !this.isReachable(f, i)) { this.fb('error'); return; }
+    const run = this.run, node = run.map.floors[f][i];
+    run.pending = { f, i };
+    let next;
+    if (node.t === 'shop') { this.generateShop(); next = 'shop'; }
+    else if (node.t === 'event') { run.event = this.rollEvent(); next = 'event'; }
     else {
-      run.ante += 1;
-      run.blindKind = 0;
-      run.bossForAnte = this.rng.pick(BOSS_IDS);
+      run.blindKind = node.t === 'boss' ? 2 : node.t === 'elite' ? 1 : 0;
+      this.round = this.placeholderRound();
+      next = 'blindSelect';
     }
+    if (!this.fire({ type: 'node', next })) return;
+    run.checkpoint = next;
+    this.fb('tap');
+    this.checkpoint();
+    this.emit();
+  }
+
+  // Der gespielte Knoten zählt als erledigt; nach einem Boss beginnt der nächste Tisch mit neuer Karte
+  completeNode() {
+    const run = this.run;
+    if (run.pending) {
+      run.map.cur = { f: run.pending.f, i: run.pending.i };
+      run.map.floors[run.pending.f][run.pending.i].done = true;
+      run.pending = null;
+    }
+  }
+  nextTable() {
+    const run = this.run;
+    run.ante += 1;
+    run.blindKind = 0;
+    run.bossForAnte = this.rng.pick(BOSS_IDS);
+    run.map = generateMapData(this.rng, run.ante);
+  }
+
+  // ===== Ereignisse =====
+  rollEvent() {
+    const total = EVENT_IDS.reduce((a, id) => a + EVENTS[id].weight, 0);
+    let roll = this.rng.int(total), pick = EVENT_IDS[0];
+    for (const id of EVENT_IDS) { if (roll < EVENTS[id].weight) { pick = id; break; } roll -= EVENTS[id].weight; }
+    return { id: pick, stage: 'choose', spins: 0, last: null, result: null };
+  }
+  eventChoose(idx) {
+    const run = this.run, ev = run.event;
+    if (this.phase !== 'event' || !ev || ev.stage !== 'choose') return;
+    const def = EVENTS[ev.id], opt = def.options && def.options[idx];
+    if (!opt) return;
+    if (opt.leave) { this.eventDone(); return; }
+    if (opt.cost && run.bankroll < opt.cost) { this.fb('error'); return; }
+    if (opt.cost) run.bankroll -= opt.cost;
+    let roll = this.rng.next(), out = opt.outcomes[opt.outcomes.length - 1];
+    for (const o of opt.outcomes) { if (roll < o.p) { out = o; break; } roll -= o.p; }
+    let text = out.text;
+    if (out.cash) run.bankroll = Math.max(0, run.bankroll + out.cash);
+    if (out.item) {
+      if (run.consumables.length < Tuning.consumableSlots) { const kind = this.rng.pick(CHEATER_IDS); run.consumables.push({ uid: newId(), kind }); text = CHEATERS[kind].name + '!'; }
+      else { run.bankroll += 2; text = 'Items full. +$2'; }
+    }
+    if (out.charm) {
+      const pool = run.charmPool.filter(id => !run.charms.some(c => c.kind === id));
+      if (run.charms.length < Tuning.charmSlots && pool.length) { const kind = this.rng.pick(pool); run.charms.push({ uid: newId(), kind }); text = CHARMS[kind].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind }); }
+      else { run.bankroll += 3; text = 'Nothing to give. +$3'; }
+    }
+    if (out.upgrade) {
+      const plain = run.deck.filter(c => c.edition === 'standard');
+      if (plain.length) { const c = this.rng.pick(plain); c.edition = ['foil', 'holographic', 'gilded'][this.rng.int(3)]; text = shortName(c) + ' is now ' + EDITION_INFO[c.edition].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ edition: c.edition }); }
+      else { run.bankroll += 3; text = 'Every card is upgraded. +$3'; }
+    }
+    ev.stage = 'result';
+    ev.result = { text, good: out.good !== false };
+    this.fb(ev.result.good ? 'purchase' : 'error');
+    this.checkpoint();
+    this.emit();
+  }
+  // Roulette: Einsatz auf rot, schwarz oder grün. Rückgabe = Ergebnis für die Animation
+  rouletteSpin(bet, color) {
+    const run = this.run, ev = run.event;
+    if (this.phase !== 'event' || !ev || ev.id !== 'roulette' || ev.spins >= ROULETTE.maxSpins) return null;
+    if (!ROULETTE.pay[color] || !(bet >= 1) || bet > run.bankroll) { this.fb('error'); return null; }
+    const slot = this.rng.int(ROULETTE.slots), landed = rouletteColor(slot), win = landed === color;
+    run.bankroll -= bet;
+    const payout = win ? bet * ROULETTE.pay[color] : 0;
+    run.bankroll += payout;
+    ev.spins += 1;
+    ev.last = { slot, landed, color, bet, win, payout, net: payout - bet };
+    this.checkpoint();
+    return ev.last;
+  }
+  eventDone() {
+    if (this.phase !== 'event') return;
+    const run = this.run;
+    this.completeNode();
+    run.event = null;
+    if (!this.fire({ type: 'eventDone' })) return;
+    run.checkpoint = 'map';
+    this.checkpoint();
+    this.emit();
   }
 
   leaveShop() {
     if (!this.fire({ type: 'leftShop' })) return;
+    this.completeNode();
     this.run.shop = null;
-    this.run.checkpoint = 'blindSelect';
+    this.run.checkpoint = 'map';
     this.round = this.placeholderRound();
     this.checkpoint();
     this.emit();
@@ -474,6 +589,9 @@ class GameEngine {
     for (const kind of pool.slice(0, 2)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: cost(CHARMS[kind].price), isSold: false });
     const cheater = this.rng.pick(CHEATER_IDS);
     offers.push({ id: newId(), item: { type: 'cheater', kind: cheater }, price: cost(CHEATERS[cheater].price), isSold: false });
+    // Kartenverbesserung: eine zufällige einfache Karte wird zu Folie, Holo oder Gold
+    const ed = ['foil', 'holographic', 'gilded'][this.rng.int(3)];
+    offers.push({ id: newId(), item: { type: 'edition', edition: ed }, price: cost(this.editionPrice(ed) + 1), isSold: false });
     run.shop = { offers, rerollCost: rerollCost === undefined ? Tuning.rerollBase : rerollCost };
   }
 

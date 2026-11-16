@@ -97,30 +97,34 @@ function buildDeck(deckId) {
 // ---------- Skins (Meta-Shop, bezahlt mit Punkten) ----------
 const SKINS = {
   bg: [
-    { id: 'felt', name: 'Green Felt', price: 0, c1: '#0e2a1b', c2: '#06160f' },
-    { id: 'midnight', name: 'Midnight', price: 30, c1: '#12295a', c2: '#050d1f' },
-    { id: 'wine', name: 'Red Velvet', price: 40, c1: '#52132a', c2: '#1c050d' },
-    { id: 'noir', name: 'Noir', price: 50, c1: '#34343a', c2: '#0a0a0c' },
-    { id: 'royal', name: 'Royal Purple', price: 70, c1: '#42206a', c2: '#12071f' },
-    { id: 'ember', name: 'Ember', price: 90, c1: '#5a2a0e', c2: '#1c0d04' }
+    { id: 'felt', name: 'Green Felt', price: 0, rarity: 'common', c1: '#13422a', c2: '#06160f', blurb: 'Dust in the lamp light.' },
+    { id: 'midnight', name: 'Midnight Sky', price: 40, rarity: 'rare', c1: '#14336e', c2: '#040b1c', blurb: 'Twinkling and shooting stars.' },
+    { id: 'velvet', name: 'Red Velvet', price: 50, rarity: 'rare', c1: '#5a1530', c2: '#1d050d', blurb: 'Curtains and gold sparks.' },
+    { id: 'noir', name: 'Smoky Noir', price: 50, rarity: 'rare', c1: '#3a3a42', c2: '#08080a', blurb: 'Smoke under a hanging lamp.' },
+    { id: 'mystic', name: 'Mystic Circle', price: 90, rarity: 'epic', c1: '#4a2478', c2: '#10061c', blurb: 'Turning runes, fireflies.' },
+    { id: 'ember', name: 'Ember Forge', price: 90, rarity: 'epic', c1: '#4a210a', c2: '#120802', blurb: 'Rising embers and heat.' },
+    { id: 'auto', name: 'Table Rotation', price: 120, rarity: 'epic', c1: '#5a1530', c2: '#10061c', blurb: 'A new place for every table.' },
+    { id: 'cyber', name: 'Neon Grid', price: 140, rarity: 'legendary', c1: '#2a0f55', c2: '#04030c', blurb: 'A synthwave highway.' }
   ],
   back: [
-    { id: 'classic', name: 'Classic Red', price: 0, a: '#290810', b: '#120208', line: '#ffb000' },
-    { id: 'ocean', name: 'Ocean', price: 25, a: '#0b2f55', b: '#040f1f', line: '#5fd0ff' },
-    { id: 'emerald', name: 'Emerald', price: 25, a: '#0b3d24', b: '#03140b', line: '#66ff86' },
-    { id: 'blackgold', name: 'Black & Gold', price: 45, a: '#1d1a10', b: '#050402', line: '#ffd54a' },
-    { id: 'violet', name: 'Violet', price: 45, a: '#33104f', b: '#12041f', line: '#d79bff' },
-    { id: 'ice', name: 'Ice', price: 60, a: '#17405a', b: '#07202e', line: '#e6faff' }
+    { id: 'classic', name: 'Classic', price: 0, rarity: 'common', a: '#290810', b: '#120208', line: '#ffb000', blurb: 'Crosshatch, dealer mark.' },
+    { id: 'waves', name: 'Ocean Waves', price: 40, rarity: 'rare', a: '#0b2f55', b: '#040f1f', line: '#5fd0ff', blurb: 'Waves and an anchor.' },
+    { id: 'lattice', name: 'Emerald Lattice', price: 50, rarity: 'rare', a: '#0b3d24', b: '#03140b', line: '#66ff86', blurb: 'Pearls and a clover.' },
+    { id: 'deco', name: 'Art Deco', price: 80, rarity: 'epic', a: '#1d1a10', b: '#050402', line: '#ffd54a', blurb: 'Golden fans, 1920s.' },
+    { id: 'stars', name: 'Starry Night', price: 80, rarity: 'epic', a: '#33104f', b: '#12041f', line: '#d79bff', blurb: 'Night sky and a moon.' },
+    { id: 'frost', name: 'Frost Crystal', price: 130, rarity: 'legendary', a: '#17405a', b: '#07202e', line: '#e6faff', blurb: 'Ice that glitters.' }
   ],
   face: [
-    { id: 'classic', name: 'Classic', price: 0, s1: '#ede0c2', s2: '#d1bd94' },
-    { id: 'ivory', name: 'Ivory', price: 30, s1: '#fcf8ea', s2: '#e9dfc4' },
-    { id: 'mint', name: 'Mint', price: 35, s1: '#e4f4df', s2: '#b9d8b0' },
-    { id: 'rose', name: 'Rose', price: 35, s1: '#f9e2e2', s2: '#e2b9b9' },
-    { id: 'ice', name: 'Ice', price: 45, s1: '#e3f1ff', s2: '#b2cde8' },
-    { id: 'gold', name: 'Gold Leaf', price: 70, s1: '#f6e6a6', s2: '#d6b25a' }
+    { id: 'classic', name: 'Classic', price: 0, rarity: 'common', blurb: 'Plain old cardstock.' },
+    { id: 'blueprint', name: 'Blueprint', price: 60, rarity: 'rare', blurb: 'A technical drawing.' },
+    { id: 'pixel', name: 'Retro Phosphor', price: 70, rarity: 'rare', blurb: 'A green terminal.' },
+    { id: 'neon', name: 'Neon Arcade', price: 100, rarity: 'epic', blurb: 'Glowing lines on black.' },
+    { id: 'baroque', name: 'Gilded Baroque', price: 110, rarity: 'epic', blurb: 'Gold filigree and frames.' },
+    { id: 'holo', name: 'Holo Foil', price: 170, rarity: 'legendary', blurb: 'Shimmering rainbow foil.' }
   ]
 };
+const DECK_RARITY = { house: 'common', gamblers: 'common', cheaters48: 'rare', lucky7s: 'rare', highRoller: 'rare', aceHunter: 'epic', royal: 'epic', goldRush: 'legendary', foilFrenzy: 'legendary' };
+const RARITY_NAME = { common: 'COMMON', rare: 'RARE', epic: 'EPIC', legendary: 'LEGENDARY' };
 
 // ---------- Charms (passive Relikte) ----------
 const CHARMS = {
@@ -178,15 +182,90 @@ function rulesFor(boss) {
 
 // ---------- Blinds ----------
 const BLIND_KINDS = [
-  { name: 'SMALL BLIND', mult: 1.0, reward: 3 },
-  { name: 'BIG BLIND', mult: 1.5, reward: 4 },
-  { name: 'CASINO BOSS', mult: 2.0, reward: 5 }
+  { name: 'FIGHT', mult: 1.0, reward: 3 },
+  { name: 'ELITE', mult: 1.5, reward: 6 },
+  { name: 'BOSS', mult: 2.0, reward: 5 }
 ];
 function currentBlind(run) {
   const idx = Math.min(Math.max(run.ante, 1), Tuning.anteBaseTargets.length) - 1;
   const target = Math.round(Tuning.anteBaseTargets[idx] * BLIND_KINDS[run.blindKind].mult);
-  return { kind: run.blindKind, ante: run.ante, target, boss: run.blindKind === 2 ? run.bossForAnte : null };
+  const p = run.pending;
+  return { kind: run.blindKind, ante: run.ante, target, boss: run.blindKind === 2 ? run.bossForAnte : null, elite: run.blindKind === 1, salt: p ? p.f * 3 + p.i : 0 };
 }
+
+// ---------- Karte im Slay-the-Spire-Stil ----------
+const MAP_FLOORS = 4;                 // 3 Wahl-Etagen + Boss pro Abschnitt (= Tisch)
+const NODE_INFO = {
+  fight: { name: 'FIGHT', blurb: 'A normal opponent.' },
+  elite: { name: 'ELITE', blurb: 'Harder, pays more, always gives a spin.' },
+  shop: { name: 'SHOP', blurb: 'Charms, items, card upgrades.' },
+  event: { name: 'EVENT', blurb: 'Something random. Risk and reward.' },
+  boss: { name: 'BOSS', blurb: 'End of this table.' }
+};
+
+// Zufällige Karte: 3 Spalten, jeder Knoten führt zu 1-2 Nachbarn der nächsten Etage
+function generateMapData(rng, ante) {
+  const floors = [];
+  for (let f = 0; f < MAP_FLOORS - 1; f++) {
+    const row = [];
+    for (let i = 0; i < 3; i++) {
+      let t = 'fight';
+      if (f > 0) { const r = rng.next(); t = r < 0.38 ? 'fight' : r < 0.58 ? 'event' : r < 0.78 ? 'shop' : 'elite'; }
+      row.push({ t, nx: [], done: false });
+    }
+    floors.push(row);
+  }
+  floors.push([{ t: 'boss', nx: [], done: false }]);
+  for (let f = 0; f < MAP_FLOORS - 1; f++) {
+    const cur = floors[f], nxt = floors[f + 1];
+    if (nxt.length === 1) { cur.forEach(n => { n.nx = [0]; }); continue; }
+    cur.forEach((n, i) => {
+      const opts = [i - 1, i, i + 1].filter(j => j >= 0 && j < nxt.length);
+      n.nx = [opts[rng.int(opts.length)]];
+      if (rng.chance(0.45)) { const o2 = opts[rng.int(opts.length)]; if (!n.nx.includes(o2)) n.nx.push(o2); }
+    });
+    nxt.forEach((_, j) => {   // jeder Knoten der nächsten Etage braucht einen Zugang
+      if (!cur.some(n => n.nx.includes(j))) {
+        const cands = [j - 1, j, j + 1].filter(i => i >= 0 && i < cur.length);
+        cur[cands[rng.int(cands.length)]].nx.push(j);
+      }
+    });
+    cur.forEach(n => { n.nx = Array.from(new Set(n.nx)).sort((a, b) => a - b); });
+  }
+  for (let f = 1; f < MAP_FLOORS - 1; f++) { const row = floors[f]; if (row[0].t === row[1].t && row[1].t === row[2].t) row[1].t = row[1].t === 'fight' ? 'event' : 'fight'; }
+  // Abwechslung: mindestens ein Shop und ein Ereignis auf den Wahl-Etagen 2-3
+  const has = t => floors.slice(1, 3).some(row => row.some(n => n.t === t));
+  if (!has('shop')) floors[1][rng.int(3)].t = 'shop';
+  if (!has('event')) { const row = floors[2], k = rng.int(3); if (row[k].t !== 'shop' || row.some(n => n.t !== 'shop')) row[k].t = 'event'; }
+  return { ante, floors, cur: null };
+}
+
+// ---------- Ereignisse ----------
+// option: label, cost (Preis), outcomes [{p, text, cash, item, charm, upgrade}], leave (Knopf geht einfach weiter)
+const EVENTS = {
+  roulette: { name: 'ROULETTE', text: 'The wheel is hot. Place your chips.', weight: 5, game: 'roulette' },
+  alley: { name: 'BACK-ALLEY BET', text: 'A stranger flips a coin. Heads, you win double.', weight: 2, options: [
+    { label: 'BET $3', cost: 3, outcomes: [{ p: 0.5, text: 'Heads! +$6', cash: 6, good: true }, { p: 0.5, text: 'Tails. The stranger grins.', good: false }] },
+    { label: 'WALK AWAY', leave: true }] },
+  chest: { name: 'LOCKED CHEST', text: 'A rusty key costs $2. What is inside?', weight: 2, options: [
+    { label: 'PAY $2', cost: 2, outcomes: [{ p: 0.4, text: 'A chip!', item: true, good: true }, { p: 0.35, text: '+$7', cash: 7, good: true }, { p: 0.25, text: 'Empty. Ouch.', good: false }] },
+    { label: 'LEAVE IT', leave: true }] },
+  shark: { name: 'CARD SHARK', text: 'He marks one of your cards for $4.', weight: 2, options: [
+    { label: 'UPGRADE A CARD $4', cost: 4, outcomes: [{ p: 1, text: 'Done.', upgrade: true, good: true }] },
+    { label: 'NO THANKS', leave: true }] },
+  drinks: { name: 'FREE DRINKS', text: 'The house is generous tonight.', weight: 2, options: [
+    { label: 'ONE DRINK', outcomes: [{ p: 1, text: '+$3. Cheers!', cash: 3, good: true }] },
+    { label: 'ROUND OF SHOTS', outcomes: [{ p: 0.5, text: '+$7. Lucky night!', cash: 7, good: true }, { p: 0.5, text: 'Hangover. -$2', cash: -2, good: false }] }] },
+  fortune: { name: 'FORTUNE TELLER', text: 'She reads your cards for $3.', weight: 1, options: [
+    { label: 'PAY $3', cost: 3, outcomes: [{ p: 0.65, text: 'A charm for you.', charm: true, good: true }, { p: 0.35, text: 'Just smoke...', good: false }] },
+    { label: 'NOT TODAY', leave: true }] }
+};
+const EVENT_IDS = Object.keys(EVENTS);
+
+// ---------- Roulette-Minispiel ----------
+// 15 Felder: 0 = grün, 1-14 abwechselnd rot/schwarz. Rot/Schwarz zahlt x2, Grün x14.
+const ROULETTE = { slots: 15, maxSpins: 6, pay: { red: 2, black: 2, green: 14 } };
+function rouletteColor(i) { return i === 0 ? 'green' : (i % 2 === 1 ? 'red' : 'black'); }
 
 // ---------- Handbewertung ----------
 function evaluateHand(cards, rules) {
@@ -350,8 +429,10 @@ function transition(phase, ev) {
     case 'dealerTurn|dealerFinished': return 'handResult';
     case 'handResult|resultAcknowledged':
       return ev.status === 'inProgress' ? 'playerTurn' : ev.status === 'cleared' ? 'roundCleared' : 'runLost';
-    case 'roundCleared|cashedOut': return ev.runComplete ? 'runWon' : 'shop';
-    case 'shop|leftShop': return 'blindSelect';
+    case 'map|node': return ev.next;                       // 'blindSelect' | 'shop' | 'event'
+    case 'roundCleared|cashedOut': return ev.runComplete ? 'runWon' : 'map';
+    case 'shop|leftShop': return 'map';
+    case 'event|eventDone': return 'map';
   }
   if (ev.type === 'abandon' && !TERMINAL.includes(phase)) return 'runLost';
   return null;
@@ -371,10 +452,10 @@ const OPP_INFO = {
 // Kleine Blinds und große Blinds ziehen reihum neue Gegner
 const OPP_POOL = [['sleepySam', 'nervousNed', 'grannyGail', 'tipsyTom'], ['slickVic', 'cowboyCal', 'ladyLuck', 'rustyRobot']];
 const OPPONENTS = Object.keys(OPP_INFO).map(id => Object.assign({ id }, OPP_INFO[id]));
-function oppIdFor(ante, kind) { const pool = OPP_POOL[kind]; return pool[(ante - 1) % pool.length]; }
+function oppIdFor(ante, kind, salt) { const pool = OPP_POOL[kind]; return pool[(ante - 1 + (salt || 0)) % pool.length]; }
 function opponentFor(blind) {
   if (blind.kind === 2 && blind.boss) return { id: blind.boss, name: BOSSES[blind.boss].name.toUpperCase(), intro: BOSSES[blind.boss].rule, isBoss: true };
-  const id = oppIdFor(blind.ante, blind.kind);
+  const id = oppIdFor(blind.ante, blind.kind, blind.salt);
   return Object.assign({ isBoss: false, id }, OPP_INFO[id]);
 }
 // Sprüche des Dealers nach jeder Hand

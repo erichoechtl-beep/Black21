@@ -4,7 +4,7 @@
 
 const App = {
   screen: 'menu', meta: Save.loadMeta(), engine: null, summary: null,
-  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null,
+  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [],
   burnMode: false, pendingTrick: null, inspected: '',
   bodyKey: null, lastPhase: null, lastMoney: null, bjUntil: 0, bjSeen: new Set(),
   dealerTimer: null, tallyToken: 0, tallyKey: null, tallyDoneKey: null, suppressClick: false
@@ -35,7 +35,7 @@ function makeHooks() {
 }
 
 function goTo(screen) {
-  App.screen = screen;
+  App.screen = screen; App.bgPreview = null;
   App.tallyToken++; App.tallyKey = null;
   if (App.dealerTimer) { clearTimeout(App.dealerTimer); App.dealerTimer = null; }
   if (screen !== 'run') App.engine = null;
@@ -71,6 +71,7 @@ const ACTIONS = {
   'continue': continueRun,
   'collection': () => goTo('collection'),
   'shop': () => goTo('shop'),
+  'bg-preview': t => { App.bgPreview = t.dataset.id; bgSync(); haptic('tap'); },
   'shop-tab': t => { App.shopTab = t.dataset.tab; renderApp(); },
   'buy-deck': t => { if (metaBuyDeck(App.meta, t.dataset.id)) { Save.saveMeta(App.meta); haptic('purchase'); } else haptic('error'); renderApp(); },
   'buy-skin': t => {
@@ -91,6 +92,12 @@ const ACTIONS = {
   'split': () => App.engine.split(),
   'burn': () => { App.burnMode = !App.burnMode; App.pendingTrick = null; renderApp(); },
   'continue-hand': () => App.engine.acknowledgeResult(),
+  'node': t => App.engine.chooseNode(Number(t.dataset.f), Number(t.dataset.i)),
+  'event-opt': t => App.engine.eventChoose(Number(t.dataset.i)),
+  'event-done': () => { if (!App.spinning) App.engine.eventDone(); },
+  'rl-bet': t => { App.rlBet = Number(t.dataset.v); renderApp(); },
+  'rl-color': t => { App.rlColor = t.dataset.v; renderApp(); },
+  'rl-spin': () => rouletteSpinUI(),
   'play-blind': () => { App.inspected = ''; App.engine.beginRound(); },
   'abandon': () => {
     if (App.abandonArmed) { App.abandonArmed = false; App.engine.abandonRun(); } else { App.abandonArmed = true; renderApp(); }
@@ -191,6 +198,7 @@ document.addEventListener('keydown', e => {
 
 // ---------- Rendering ----------
 function renderApp() {
+  if (typeof BG !== 'undefined') bgSync();
   switch (App.screen) {
     case 'menu': renderMenu(); break;
     case 'collection': renderCollection(); break;
@@ -233,17 +241,25 @@ function renderMenu() {
 
 // ----- Shop (Meta): Decks und Skins mit Punkten kaufen -----
 function skinPreview(cat, sk) {
-  if (cat === 'bg') return '<div class="sw sw-bg" style="background:radial-gradient(ellipse at 50% 38%,' + sk.c1 + ',' + sk.c2 + ' 78%)"></div>';
-  if (cat === 'back') {
-    let h = '';
-    for (let x = -126; x < 100; x += 8) h += 'M' + x + ' 133 L' + (x + 126) + ' 7 ';
-    return '<svg class="sw sw-card" viewBox="0 0 100 140"><rect width="100" height="140" rx="9" fill="' + sk.b + '"/><rect x="6" y="6" width="88" height="128" rx="5" fill="' + sk.a + '"/>' +
-      '<path d="' + h + '" stroke="' + sk.line + '" stroke-opacity=".35" stroke-width="1.2"/><rect x="5" y="5" width="90" height="130" rx="5" fill="none" stroke="' + sk.line + '" stroke-width="2"/>' +
-      '<circle cx="50" cy="70" r="20" fill="#000" fill-opacity=".8" stroke="' + sk.line + '" stroke-width="2"/></svg>';
+  if (cat === 'bg') {
+    return '<div class="sw sw-bg bgp-' + sk.id + '" data-act="bg-preview" data-id="' + sk.id + '" style="background:radial-gradient(ellipse at 50% 38%,' + sk.c1 + ',' + sk.c2 + ' 80%)">' +
+      '<i></i><i></i><i></i><span class="sw-tag">TAP: PREVIEW</span></div>';
   }
-  return '<svg class="sw sw-card" viewBox="0 0 100 140"><defs><linearGradient id="pv' + sk.id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + sk.s1 + '"/><stop offset="1" stop-color="' + sk.s2 + '"/></linearGradient></defs>' +
-    '<rect width="100" height="140" rx="9" fill="url(#pv' + sk.id + ')"/><text x="12" y="30" font-size="26" font-weight="700" font-family="Menlo,Consolas,monospace" fill="#9e1419">A</text>' +
-    pipG('hearts', 28, 50, 44, '#9e1419', false) + '</svg>';
+  if (cat === 'back') return '<div class="sw-card sw-back bk-' + sk.id + '">' + cardBackSVG({ id: 'pv' + sk.id }, sk.id) + '</div>';
+  return '<div class="sw-card sw-face fc-' + sk.id + '">' + cardFaceSVG({ id: 'pvf' + sk.id, suit: 'hearts', rank: 12 }, sk.id) + '</div>';
+}
+// Deck als edle Kartenbox: 3D-Schachtel, Fächer aus Vorschaukarten, Seltenheit
+function deckBoxHtml(id, m) {
+  const d = DECKS[id], r = DECK_RARITY[id] || 'common', own = m.unlockedDecks.includes(id), can = m.points >= d.price, n = buildDeck(id).length;
+  const mini = icon(d.icon, 24);
+  const extra = (d.bonusBankroll ? '+$' + d.bonusBankroll + ' START' : d.bonusDiscards ? '+' + d.bonusDiscards + ' REROLLS' : '');
+  return '<div class="deckbox r-' + r + (own ? ' own' : '') + '">' +
+    '<div class="db-stage"><div class="db-fan"><i class="dbc c1">' + mini + '</i><i class="dbc c2">' + mini + '</i><i class="dbc c3">' + mini + '</i></div>' +
+    '<div class="db-box"><div class="db-face db-front">' + icon(d.icon, 38) + '<b>' + esc(d.name.toUpperCase().replace(/^THE /, '').replace(/'S DECK$/, '')) + '</b></div>' +
+    '<div class="db-face db-back"></div><div class="db-face db-side"></div><div class="db-face db-left"></div><div class="db-face db-top"></div></div></div>' +
+    '<div class="db-info"><div class="db-rar">' + RARITY_NAME[r] + '</div><div class="db-name">' + esc(d.name.toUpperCase()) + '</div><div class="db-tx">' + esc(d.blurb) + '</div>' +
+    '<div class="db-stat">' + n + ' CARDS' + (extra ? ' &middot; ' + extra : '') + '</div>' +
+    (own ? '<span class="own">OWNED</span>' : '<button class="tbtn small ' + (can ? 'green' : 'dimmed') + '" data-act="buy-deck" data-id="' + id + '">' + d.price + ' PTS</button>') + '</div></div>';
 }
 function renderShop() {
   const m = App.meta, tab = App.shopTab || 'decks';
@@ -251,34 +267,34 @@ function renderShop() {
   let h = '<div class="screen"><div class="shop-head"><div class="huge bold amber glow">SHOP</div><div class="pts-chip"><span>PTS</span><b>' + m.points + '</b></div></div>' +
     '<div class="tabs">' + tabs.map(t => '<button class="tab' + (tab === t[0] ? ' on' : '') + '" data-act="shop-tab" data-tab="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
   if (tab === 'decks') {
-    h += '<div class="shop-scroll sk-list">' + DECK_IDS.map(id => {
-      const d = DECKS[id], own = m.unlockedDecks.includes(id), can = m.points >= d.price;
-      return '<div class="offer ' + (own ? 'sold' : '') + '"><div class="offer-icon badge uncommon" style="cursor:default">' + icon(d.icon, 40) + '</div>' +
-        '<div class="info"><div class="nm">' + d.name.toUpperCase() + '</div><div class="tx">' + d.blurb + '</div></div>' +
-        (own ? '<span class="own">OWNED</span>' : '<button class="tbtn small ' + (can ? 'green' : 'dimmed') + '" data-act="buy-deck" data-id="' + id + '">' + d.price + '</button>') + '</div>';
-    }).join('') + '</div>';
+    h += '<div class="shop-scroll sk-list">' + DECK_IDS.map(id => deckBoxHtml(id, m)).join('') + '</div>';
   } else {
     const own = m.owned[tab] || [], eq = m.equip[tab];
     h += '<div class="shop-scroll"><div class="sk-grid">' + SKINS[tab].map(sk => {
       const has = own.includes(sk.id), on = eq === sk.id, can = m.points >= sk.price;
       const btn = on ? '<span class="own on">IN USE</span>' : has ? '<button class="tbtn small" data-act="equip-skin" data-cat="' + tab + '" data-id="' + sk.id + '">USE</button>' :
         '<button class="tbtn small ' + (can ? 'green' : 'dimmed') + '" data-act="buy-skin" data-cat="' + tab + '" data-id="' + sk.id + '">' + sk.price + '</button>';
-      return '<div class="sk-tile' + (on ? ' on' : '') + '">' + skinPreview(tab, sk) + '<div class="sk-nm">' + sk.name.toUpperCase() + '</div>' + btn + '</div>';
+      return '<div class="sk-tile r-' + sk.rarity + (on ? ' on' : '') + '"><div class="sk-rar">' + RARITY_NAME[sk.rarity] + '</div>' + skinPreview(tab, sk) +
+        '<div class="sk-nm">' + esc(sk.name.toUpperCase()) + '</div><div class="sk-bl">' + esc(sk.blurb) + '</div>' + btn + '</div>';
     }).join('') + '</div></div>';
   }
   h += '<button class="tbtn" style="margin-top:8px" data-act="menu">BACK</button></div>';
   appEl().innerHTML = h;
 }
 
-// Gewählte Skins anwenden: Tischfarbe, Kartenrücken, Kartenvorderseite
+// Gewählte Skins anwenden: Kartendesigns über data-Attribute (CSS-Glanz), Hintergrund über den Canvas
 function applySkins() {
   const eq = App.meta.equip || {};
-  const pick = (cat, def) => SKINS[cat].find(s => s.id === eq[cat]) || SKINS[cat][0];
-  const bg = pick('bg'), bk = pick('back'), fc = pick('face');
-  const root = document.documentElement.style;
-  root.setProperty('--felt-light', bg.c1); root.setProperty('--felt', bg.c2); root.setProperty('--bkl', bk.line);
-  const set = (sel, a, b) => { const st = document.querySelectorAll(sel); if (st[0]) st[0].setAttribute('stop-color', a); if (st[1]) st[1].setAttribute('stop-color', b); };
-  set('#backGrad stop', bk.a, bk.b); set('#stock stop', fc.s1, fc.s2);
+  const pick = cat => SKINS[cat].find(s => s.id === eq[cat]) || SKINS[cat][0];
+  document.body.dataset.face = pick('face').id;
+  document.body.dataset.back = pick('back').id;
+  App.bgPreview = null;
+  bgSync();
+}
+function bgSync() {
+  const eq = (App.meta && App.meta.equip) || {};
+  const ante = App.engine && App.engine.run ? App.engine.run.ante : 1;
+  BG.set(BG.themeFor(App.bgPreview || eq.bg || 'felt', ante));
 }
 
 // ----- Compendium -----
@@ -379,32 +395,47 @@ function renderSummary() {
 // ----- Run: HUD + Körper -----
 const RUN_SKELETON =
   '<div class="screen" id="runscreen">' +
-  '<div class="hud"><div class="hud-top"><div>' +
-  '<div class="stepper" id="stepper"></div><div id="hud-blind" class="big bold green glow"></div></div>' +
+  '<div class="hud"><div class="hud-top"><div class="hud-l">' +
+  '<div id="hud-blind" class="big bold green glow"></div><div class="stepper" id="stepper"></div></div>' +
   '<div class="bankroll"><div class="money-chip"><div class="mc-in"><span class="money" id="hud-money"></span></div></div>' +
-  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div>' +
-  // Einfache Punkteanzeige: Stand / Ziel, Balken, und eine Zeile "Chips x Mult"
-  '<div class="goal" id="goal"><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
-  '<div class="goal-score"><span id="g-score">0</span><span class="goal-of"> / <span id="g-target">0</span></span></div>' +
-  '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
-  '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
-  '<div class="t-read"><span class="cyan" id="t-chips">0</span><span class="x">x</span><span class="red" id="t-mult">1</span></div></div>' +
-  '</div>' +
-  '<div class="track" id="hands-track"></div></div>' +
+  '<div class="pot" id="hud-pot-wrap"><span class="pot-l">POT</span> <span id="hud-pot">0</span></div></div></div></div>' +
   '<div id="body"></div></div>';
 
+// Reihenfolge am Tisch: Gegner (einmal) > Dealer-Karten > meine Hand > Anzeigetafel > Charms/Items > Buttons
 const TABLE_SKELETON =
   '<div id="table" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
   '<div class="opp-row"><div class="opp-avatar" id="opp"></div>' +
   '<div class="opp-info"><div class="tag" id="opp-name"></div><div class="opp-rule" id="boss"></div></div>' +
   '<span class="num" id="dealer-total"></span></div>' +
   '<div class="cards-row" id="dealer-cards"></div>' +
-  '<div class="center-panel" id="center">' +
-  '<div class="hint" id="hint"></div></div>' +
+  '<div class="center-panel" id="center"><div class="hint" id="hint"></div></div>' +
   '<div class="hands" id="player-hands"></div>' +
+  '<div class="scoreboard">' +
+  '<div class="goal" id="goal"><button class="mute" id="mute" data-act="sound" aria-label="Sound on or off"></button>' +
+  '<div class="goal-score"><span id="g-score">0</span><span class="goal-of"> / <span id="g-target">0</span></span></div>' +
+  '<div class="bar" id="p-bar"><div class="fill" id="p-fill" style="width:0"></div></div>' +
+  '<div class="goal-live preview" id="g-live"><div class="t-head" id="t-head"></div>' +
+  '<div class="t-read"><span class="cyan" id="t-chips">0</span><span class="x">x</span><span class="red" id="t-mult">1</span></div>' +
+  '<div class="t-fx" id="t-fx"></div></div></div>' +
+  '<div class="track" id="hands-track"></div></div>' +
   '<div id="loadout"></div><div id="actions"></div></div>';
 
+function fxPills(b) {
+  const shown = b.events.filter(e => !/^Hand total/.test(e.source));
+  App.fxSources = shown.map(e => e.source);
+  const pill = e => {
+    const nm = esc(e.source.replace(/\s*\(.*\)/, '').replace(/ 7-7-7!/, '').replace(/^Natural.*/, 'Natural'));
+    const v = (e.kind === 'xMult' || e.kind === 'factor') ? 'x' + fmtNum(e.value) : e.kind === 'cash' ? '+$' + e.value : '+' + Math.trunc(e.value);
+    const c = e.kind === 'chips' ? 'c' : e.kind === 'cash' ? 'g' : 'm';
+    return '<span class="fxp ' + c + '">' + nm + ' <b>' + v + '</b></span>';
+  };
+  return shown.slice(0, 4).map(pill).join('') + (shown.length > 4 ? '<span class="fxp more">+' + (shown.length - 4) + '</span>' : '');
+}
+const EDI_ICON = { foil: 'deckFoil', holographic: 'deckFoil', gilded: 'deckGold' };
+
 function bodyKeyFor(phase) {
+  if (phase === 'map') return 'map';
+  if (phase === 'event') return 'event';
   if (phase === 'blindSelect') return 'blind';
   if (phase === 'shop') return 'shop';
   if (phase === 'roundCleared') return 'cashout';
@@ -428,6 +459,10 @@ function renderRun() {
   if (key === 'table') {
     if (App.bodyKey !== 'table') body.innerHTML = TABLE_SKELETON;
     updateTable(E);
+  } else if (key === 'map') {
+    body.innerHTML = mapHtml(E);
+  } else if (key === 'event') {
+    body.innerHTML = eventHtml(E);
   } else if (key === 'blind') {
     body.innerHTML = blindHtml(E);
   } else if (key === 'cashout') {
@@ -454,7 +489,9 @@ function updateGoal(E) {
   const phase = E.phase;
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(phase);
   const show = inRound || phase === 'roundCleared';
-  $('#goal').hidden = !show;
+  const goalEl = $('#goal');
+  if (!goalEl) return;
+  goalEl.hidden = !show;
   if (!show) return;
   const target = E.round.blind.target;
   let score = E.round.score;
@@ -472,14 +509,9 @@ function updateGoal(E) {
 
 // Wo bin ich? "TABLE 2/8", die drei Gegner dieses Tisches als Weg, und Punkte für die Hände der Runde
 function updateRoundDisplay(E, blind, inRound) {
-  const nodes = [0, 1, 2].map(i => {
-    const id = i === 2 ? E.run.bossForAnte : oppIdFor(blind.ante, i);
-    const state = i < blind.kind ? 'done' : i === blind.kind ? 'now' : 'next';
-    return '<div class="node ' + state + (i === 2 ? ' boss' : '') + '">' + icon(id, 22) + (state === 'done' ? '<span class="tick">&#10003;</span>' : '') + '</div>';
-  }).join('<span class="link"></span>');
-  const html = '<span class="tbl">TABLE ' + Math.min(blind.ante, Tuning.finalAnte) + '<i>/' + Tuning.finalAnte + '</i></span>' + nodes;
+  const html = '<span class="tbl">TABLE ' + Math.min(blind.ante, Tuning.finalAnte) + '<i>/' + Tuning.finalAnte + '</i></span>';
   const stepper = $('#stepper');
-  if (stepper.dataset.sig !== html) { stepper.innerHTML = html; stepper.dataset.sig = html; }
+  if (stepper && stepper.dataset.sig !== html) { stepper.innerHTML = html; stepper.dataset.sig = html; }
 
   // Hand-Leiste: gespielt = umgedrehte Karte mit Punkten, jetzt = leuchtende Karte, danach = Kartenrücken
   const kfmt = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
@@ -503,7 +535,8 @@ function updateRoundDisplay(E, blind, inRound) {
 function updateHud(E) {
   const inRound = ['playerTurn', 'dealerTurn', 'handResult'].includes(E.phase);
   const blind = inRound ? E.round.blind : currentBlind(E.run);
-  $('#hud-blind').textContent = E.phase === 'shop' ? 'PAWN SHOP' : BLIND_KINDS[blind.kind].name;
+  const labels = { map: 'MAP', shop: 'SHOP', event: 'EVENT' };
+  $('#hud-blind').textContent = labels[E.phase] || (blind.elite ? 'ELITE' : BLIND_KINDS[blind.kind].name);
   updateRoundDisplay(E, blind, inRound);
   updateGoal(E);
   // Topf: Punkte, die man bei Sieg oder "Bank" behält. Bei Niederlage verfallen sie.
@@ -527,9 +560,9 @@ function updateHud(E) {
 // Kartengrößen passen sich der Bildschirmhöhe an (Dealer und Spieler gleich gut sichtbar)
 function layoutSizes() {
   const ph = $('#phone'), h = ph.clientHeight, w = ph.clientWidth;
-  if (h < 700) return { d: 38, p: 48, m: 40, w };
-  if (h < 790) return { d: 52, p: 66, m: 50, w };
-  return { d: 60, p: 80, m: 56, w };
+  if (h < 700) return { d: 48, p: 50, m: 40, w };
+  if (h < 790) return { d: 62, p: 58, m: 46, w };
+  return { d: 74, p: 72, m: 54, w };
 }
 
 // Karten überlappen so weit wie nötig, damit auch 6 Karten in eine Zeile passen
@@ -637,7 +670,7 @@ function updateTable(E) {
     syncCards($('.cards-row', el), hand.cards, multi ? size.m : size.p, multi ? (size.w - 84) / 2 : size.w - 68,
       card => !E.isHidden(card, hand), active && (App.burnMode || !!App.pendingTrick));
     const tot = $('.hand-total', el);
-    tot.textContent = E.displayTotal(hand) + (hand.isDoubled ? '  x2' : '');
+    tot.innerHTML = handBadgeHtml(E, hand, active);
     const hv = E.value(hand), hid = E.round.rules.hidesFirstCard && E.phase === 'playerTurn';
     tot.className = 'hand-total ' + (!hid && hv.isBust ? 'bust' : !hid && hv.total === 21 ? 'twentyone' : active ? 'green' : 'amber');
   });
@@ -660,13 +693,16 @@ function updateTable(E) {
 // ----- Items sehen aus wie Casino-Chips, Charms wie Walzen eines Spielautomaten -----
 function itemChipHtml(kind, extra, act, uid) {
   const def = CHEATERS[kind];
-  return '<div class="item-chip tone-' + def.tone + (extra || '') + '"' + (act ? ' data-act="' + act + '"' : '') + (uid ? ' data-uid="' + uid + '"' : '') + ' data-kind="' + kind + '">' + icon(kind, 28) + '</div>';
+  return '<div class="item-chip tone-' + def.tone + (extra || '') + '"' + (act ? ' data-act="' + act + '"' : '') + (uid ? ' data-uid="' + uid + '"' : '') + ' data-kind="' + kind + '" title="' + esc(def.name + ': ' + def.text) + '">' + icon(kind, 28) + '</div>';
 }
 
 // Am Tisch: ganz dezent. Kleine Walzen links, Item-Chips rechts.
 function loadoutHtml(E) {
   let reels = '', chips = '';
-  for (const c of E.run.charms) reels += '<div class="mreel ' + CHARMS[c.kind].rarity + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 20) + '</div>';
+  for (const c of E.run.charms) {
+    const on = App.fxSources.some(s => s.indexOf(CHARMS[c.kind].name) === 0);
+    reels += '<div class="mreel ' + CHARMS[c.kind].rarity + (on ? ' on' : '') + '" title="' + esc(CHARMS[c.kind].name + ': ' + CHARMS[c.kind].text) + '" data-act="inspect-charm" data-kind="' + c.kind + '">' + icon(c.kind, 20) + '</div>';
+  }
   for (const it of E.run.consumables) chips += itemChipHtml(it.kind, (App.pendingTrick === it.uid ? ' armed' : '') + (E.canUse(it) ? '' : ' off'), 'use-cheater', it.uid);
   const rc = E.round.roulette;
   const rtag = rc && E.run.charms.some(c => c.kind === 'rouletteTable') ? '<div class="rtag">' + icon('rouletteTable', 20) + '<span class="rc ' + (rc.red ? 'red' : '') + '">' + rankLabel(rc.rank) + '</span>' + (rc.red ? 'RED' : 'BLACK') + ' +8</div>' : '';
@@ -746,6 +782,7 @@ function renderPreview(E) {
   const hand = E.activeHand;
   const hidden = E.round.rules.hidesFirstCard && E.phase === 'playerTurn';
   head.textContent = ''; head.className = 't-head';
+  const fxEl = $('#t-fx'); if (fxEl) fxEl.innerHTML = ''; App.fxSources = [];
   if (!hand || hidden) { chips.textContent = '?'; mult.textContent = '?'; return; }
   const v = E.value(hand);
   const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
@@ -753,6 +790,7 @@ function renderPreview(E) {
     luckMult: E.round.luckMult, hotChips: E.round.hotChips, roulette: E.round.roulette, streak: E.run.streak || 0 });
   chips.textContent = Math.trunc(b.chips);
   mult.textContent = fmtNum(b.mult * b.factor);
+  if (fxEl) fxEl.innerHTML = fxPills(b);
   if (v.isBust) { head.textContent = 'BUST'; head.className = 't-head red'; }
 }
 
@@ -875,14 +913,153 @@ function coinShower(n, fromEl) {
   }
 }
 
+// ----- Karte: Pfad wählen (Slay-the-Spire-Stil) -----
+const NODE_ICON = { fight: 'nodeFight', elite: 'nodeElite', shop: 'nodeShop', event: 'nodeEvent', boss: 'nodeBoss' };
+function nodePos(m, f, i) {
+  const n = m.floors[f].length, F = m.floors.length;
+  return { x: n === 1 ? 50 : [20, 50, 80][i], y: 8 + (F - 1 - f) / (F - 1) * 84 };   // Start unten, Boss oben
+}
+function mapHtml(E) {
+  const run = E.run, m = run.map, reach = E.reachable;
+  const isReach = (f, i) => reach.some(r => r.f === f && r.i === i);
+  let lines = '', nodes = '';
+  m.floors.forEach((row, f) => row.forEach((n, i) => {
+    const a = nodePos(m, f, i);
+    if (f + 1 < m.floors.length) n.nx.forEach(j => {
+      const b = nodePos(m, f + 1, j), tn = m.floors[f + 1][j];
+      let cls = 'dim';
+      if (n.done && tn.done) cls = 'path';
+      else if (m.cur && m.cur.f === f && m.cur.i === i && isReach(f + 1, j)) cls = 'next';
+      lines += '<line class="ml ' + cls + '" x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" vector-effect="non-scaling-stroke"/>';
+    });
+    const reachable = isReach(f, i), isCur = !!m.cur && m.cur.f === f && m.cur.i === i;
+    const cls = 'mnode t-' + n.t + (n.done ? ' done' : '') + (reachable ? ' reach' : '') + (isCur ? ' cur' : '') + (!n.done && !reachable ? ' locked' : '');
+    nodes += '<button class="' + cls + '" style="left:' + a.x + '%;top:' + a.y + '%" data-act="node" data-f="' + f + '" data-i="' + i + '"' + (reachable ? '' : ' disabled') + ' aria-label="' + NODE_INFO[n.t].name + '">' +
+      icon(NODE_ICON[n.t], n.t === 'boss' ? 38 : 30) + (n.done ? '<i class="mchk">&#10003;</i>' : '') +
+      (reachable ? '<span class="mlab">' + NODE_INFO[n.t].name + '</span>' : '') + (isCur ? '<span class="mlab you">YOU</span>' : '') + '</button>';
+  }));
+  const legend = ['fight', 'elite', 'shop', 'event', 'boss'].map(t => '<span class="lg t-' + t + '">' + icon(NODE_ICON[t], 16) + NODE_INFO[t].name + '</span>').join('');
+  return '<div class="col mapwrap" style="flex:1;min-height:0;gap:8px;padding-bottom:4px">' +
+    '<div class="map-title"><b>TABLE ' + run.ante + '</b><span>' + (m.cur ? 'PICK YOUR NEXT STOP' : 'CHOOSE YOUR PATH') + '</span></div>' +
+    '<div class="map"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div>' +
+    '<div class="legend">' + legend + '</div>' +
+    '<div class="map-gear">' + slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') + '</div>' +
+    '<div class="row"><button class="tbtn dimmed" data-act="menu">MENU</button><button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'SURE? TAP AGAIN' : 'GIVE UP') + '</button></div></div>';
+}
+
+// ----- Ereignisse -----
+function eventHtml(E) {
+  const ev = E.run.event, def = EVENTS[ev.id];
+  if (def.game === 'roulette') return rouletteHtml(E, ev);
+  const head = '<div class="ev-head"><div class="ev-ico">' + icon('nodeEvent', 44) + '</div><div class="ev-title">' + def.name + '</div><div class="ev-text">' + esc(def.text) + '</div></div>';
+  if (ev.stage === 'result') {
+    return '<div class="col ev" style="flex:1;gap:14px;padding-bottom:6px"><div class="spacer"></div>' + head +
+      '<div class="ev-res ' + (ev.result.good ? 'good' : 'bad') + '">' + esc(ev.result.text) + '</div><div class="spacer"></div>' +
+      '<button class="tbtn big green" data-act="event-done">CONTINUE</button></div>';
+  }
+  const opts = def.options.map((o, i) => '<button class="tbtn ' + (o.leave ? 'dimmed' : 'big') + '" data-act="event-opt" data-i="' + i + '"' +
+    (o.cost && E.run.bankroll < o.cost ? ' disabled' : '') + '>' + o.label + '</button>').join('');
+  return '<div class="col ev" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' + head + '<div class="spacer"></div>' + opts + '</div>';
+}
+
+// ----- Roulette-Minispiel: Chips setzen, drehen, vervielfachen -----
+const RL_COL = { red: '#c4182f', black: '#14161c', green: '#13923a' };
+function rouletteWheelSvg() {
+  const N = ROULETTE.slots, seg = 360 / N, R = 92;
+  const pt = (ang, r) => [r * Math.sin(ang * Math.PI / 180), -r * Math.cos(ang * Math.PI / 180)];
+  let w = '', t = '';
+  for (let i = 0; i < N; i++) {
+    const [x1, y1] = pt(i * seg - seg / 2, R), [x2, y2] = pt(i * seg + seg / 2, R);
+    w += '<path d="M0 0 L' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' A' + R + ' ' + R + ' 0 0 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + 'Z" fill="' + RL_COL[rouletteColor(i)] + '" stroke="#e8c15a" stroke-width=".8"/>';
+    t += '<text transform="rotate(' + i * seg + ')" y="-70" font-size="11" font-weight="700" text-anchor="middle" fill="#fff3d0" font-family="Menlo,Consolas,monospace">' + i + '</text>';
+  }
+  return '<svg viewBox="-104 -104 208 208" class="rl-svg"><circle r="102" fill="#3a2410"/><circle r="97" fill="none" stroke="#e8c15a" stroke-width="2"/>' +
+    '<g id="rl-rot" style="transform:rotate(' + (App.rlAngle || 0) + 'deg)">' + w + t + '</g><circle r="30" fill="#2a190d" stroke="#e8c15a" stroke-width="2"/><circle r="9" fill="#e8c15a"/></svg>';
+}
+function rouletteHtml(E, ev) {
+  const run = E.run, left = ROULETTE.maxSpins - ev.spins, last = ev.last;
+  const bets = [1, 2, 5, 10].filter(v => v <= run.bankroll);
+  if (run.bankroll > 0 && !bets.includes(run.bankroll)) bets.push(run.bankroll);
+  const bet = Math.max(1, Math.min(App.rlBet || 1, run.bankroll || 1));
+  const colors = [['red', 'RED', 'x2'], ['green', 'GREEN', 'x14'], ['black', 'BLACK', 'x2']];
+  const res = last ? '<div class="rl-res ' + (last.win ? 'win' : 'lose') + '" id="rl-res"><b>' + last.landed.toUpperCase() + ' ' + last.slot + '</b> ' + (last.win ? '+$' + last.net : '-$' + last.bet) + '</div>'
+    : '<div class="rl-res" id="rl-res">PLACE YOUR BET</div>';
+  const can = left > 0 && run.bankroll >= 1;
+  return '<div class="col rl" style="flex:1;gap:8px;padding-bottom:6px">' +
+    '<div class="rl-top"><span class="ev-title">ROULETTE</span><span class="rl-left">SPINS LEFT <b>' + left + '</b></span></div>' +
+    '<div class="rl-wheel"><div class="rl-ptr"></div>' + rouletteWheelSvg() + '</div>' + res +
+    '<div class="rl-bets">' + bets.map(v => '<button class="rl-chip' + (bet === v ? ' on' : '') + '" data-act="rl-bet" data-v="' + v + '">$' + v + '</button>').join('') + '</div>' +
+    '<div class="rl-colors">' + colors.map(c => '<button class="rl-col c-' + c[0] + (App.rlColor === c[0] ? ' on' : '') + '" data-act="rl-color" data-v="' + c[0] + '">' + c[1] + '<small>' + c[2] + '</small></button>').join('') + '</div>' +
+    '<div class="spacer"></div>' +
+    '<button class="tbtn big gold" data-act="rl-spin"' + (can ? '' : ' disabled') + '>SPIN $' + bet + '</button>' +
+    '<button class="tbtn dimmed" data-act="event-done">' + (ev.spins ? 'TAKE YOUR CHIPS AND LEAVE' : 'LEAVE') + '</button></div>';
+}
+function rouletteSpinUI() {
+  const E = App.engine;
+  if (!E || App.spinning) return;
+  const bet = Math.max(1, Math.min(App.rlBet || 1, E.run.bankroll));
+  const res = E.rouletteSpin(bet, App.rlColor || 'red');
+  if (!res) { haptic('error'); return; }
+  App.spinning = true;
+  const rot = $('#rl-rot'), seg = 360 / ROULETTE.slots;
+  const base = (App.rlAngle || 0) % 360;
+  const final = base + 360 * 5 + ((360 - ((res.slot * seg) % 360)) - base + 360) % 360;
+  const T = 3800, t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 4);
+  let lastSeg = -1, done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    App.rlAngle = final % 360;
+    if (rot) rot.style.transform = 'rotate(' + final + 'deg)';
+    const out = $('#rl-res');
+    if (out) { out.className = 'rl-res ' + (res.win ? 'win' : 'lose'); out.innerHTML = '<b>' + res.landed.toUpperCase() + ' ' + res.slot + '</b> ' + (res.win ? '+$' + res.net : '-$' + res.bet); }
+    haptic(res.win ? (res.landed === 'green' ? 'jackpot' : 'wheelWin') : 'bust');
+    if (res.win) coinShower(res.landed === 'green' ? 36 : 14, $('.rl-wheel'));
+    else shakeScreen();
+    App.spinning = false;
+    setTimeout(() => { if (App.screen === 'run') renderApp(); }, 1100);
+  }
+  function frame(now) {
+    if (!rot || !rot.isConnected) { App.spinning = false; return; }
+    const t = Math.min(1, (now - t0) / T), ang = base + (final - base) * ease(t);
+    rot.style.transform = 'rotate(' + ang + 'deg)';
+    const under = Math.floor((((360 - (ang % 360)) % 360) + seg / 2) / seg) % ROULETTE.slots;
+    if (under !== lastSeg) { if (lastSeg !== -1) haptic('wheelTick', t); lastSeg = under; }
+    if (t < 1) requestAnimationFrame(frame); else finish();
+  }
+  requestAnimationFrame(frame);
+  setTimeout(finish, T + 600);
+}
+
+// ----- Hand-Anzeige: Wertigkeit auf einen Blick -----
+function handBadgeHtml(E, hand, active) {
+  const hv = E.value(hand), hid = E.round.rules.hidesFirstCard && E.phase === 'playerTurn';
+  const num = E.displayTotal(hand) + (hand.isDoubled ? ' x2' : '');
+  if (hid) return '<span class="ht-n">' + num + '</span>';
+  let tag;
+  if (hv.isBust) tag = 'BUST';
+  else if (hv.isTwentyOneInTwo && !hand.isFromSplit) tag = 'BLACKJACK';
+  else if (hv.total === 21) tag = 'PERFECT';
+  else if (hv.total >= 17) tag = hv.isSoft ? 'SOFT' : 'STRONG';
+  else if (hv.total >= 12) tag = 'RISKY';
+  else tag = 'DRAW';
+  let risk = '';
+  if (active && E.phase === 'playerTurn' && E.canHit && !hv.isBust && hv.total < 21) {
+    const pc = E.bustChance();
+    risk = '<span class="ht-r r' + (pc >= 50 ? 3 : pc >= 25 ? 2 : 1) + '">' + pc + '% BUST</span>';
+  }
+  return '<span class="ht-n">' + num + '</span><span class="ht-t">' + tag + '</span>' + risk;
+}
+
 // ----- Blind-Auswahl / Cashout / Shop -----
 function blindHtml(E) {
   const b = currentBlind(E.run), rules = rulesFor(b.boss), kind = BLIND_KINDS[b.kind];
   const opp = opponentFor(b);
   const hands = Math.max(1, E.handsPerRound - rules.handsPenalty);
-  const ahead = b.boss ? '' :
-    '<div class="center small red ahead">' + icon(E.run.bossForAnte, 26) + '<span>BOSS AHEAD: ' + BOSSES[E.run.bossForAnte].name.toUpperCase() + '</span></div>';
+  const ahead = '';
+  const tag = opp.isBoss ? 'BOSS' : b.elite ? 'ELITE' : 'FIGHT';
   return '<div class="col blindsel" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' +
+    '<div class="center tiny dim" style="letter-spacing:4px">' + tag + '</div>' +
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
     '<div class="center small dim" style="margin-top:-6px">' + esc(opp.intro) + '</div>' +
     '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
@@ -979,17 +1156,19 @@ function spinWheelUI() {
 }
 
 // ----- Shop: "The Cage" mit drei Angeboten, darunter dein Charm-Automat -----
-function offerTitle(item) { return item.type === 'charm' ? CHARMS[item.kind].name : CHEATERS[item.kind].name; }
-function offerDetail(item) { return item.type === 'charm' ? CHARMS[item.kind].text : CHEATERS[item.kind].text; }
+function offerTitle(item) { return item.type === 'charm' ? CHARMS[item.kind].name : item.type === 'edition' ? 'Card Upgrade: ' + EDITION_INFO[item.edition].name : CHEATERS[item.kind].name; }
+function offerDetail(item) { return item.type === 'charm' ? CHARMS[item.kind].text : item.type === 'edition' ? 'One random card. ' + EDITION_INFO[item.edition].blurb : CHEATERS[item.kind].text; }
 
 function shopHtml(E) {
   const run = E.run;
   let h = '<div class="shop-scroll"><div class="sect" style="margin-top:4px">FOR SALE</div>';
   for (const o of run.shop ? run.shop.offers : []) {
-    const isCharm = o.item.type === 'charm';
-    const visual = isCharm
-      ? '<div class="offer-icon badge ' + CHARMS[o.item.kind].rarity + '" style="cursor:default">' + icon(o.item.kind, 46) + '</div>'
-      : '<div class="offer-icon">' + itemChipHtml(o.item.kind, ' big') + '</div>';
+    const it = o.item;
+    const visual = it.type === 'charm'
+      ? '<div class="offer-icon badge ' + CHARMS[it.kind].rarity + '" style="cursor:default">' + icon(it.kind, 46) + '</div>'
+      : it.type === 'edition'
+        ? '<div class="offer-icon badge rare" style="cursor:default">' + icon(EDI_ICON[it.edition], 46) + '</div>'
+        : '<div class="offer-icon">' + itemChipHtml(it.kind, ' big') + '</div>';
     h += '<div class="offer ' + (o.isSold ? 'sold' : '') + '">' + visual +
       '<div class="info"><div class="nm">' + esc(offerTitle(o.item)).toUpperCase() + '</div><div class="tx">' + esc(offerDetail(o.item)) + '</div></div>' +
       '<button class="tbtn small ' + (run.bankroll >= o.price ? 'green' : 'dimmed') + '" data-act="buy" data-id="' + o.id + '"' + (o.isSold ? ' disabled' : '') + '>' + (o.isSold ? 'SOLD' : '$' + o.price) + '</button></div>';

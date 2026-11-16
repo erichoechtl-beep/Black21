@@ -126,7 +126,24 @@ const ICON_48 = {
     '<path d="M6 38 L12 24 H36 L42 38Z" ' + MID + '/><path d="M14 24 L18 12 H30 L34 24" ' + SOFT + '/><path d="M20 31 H28" stroke-width="2.6"/>' +
     '<path d="M38 6 V12 M35 9 H41" stroke-width="2"/>',
   deckFoil:
-    '<path d="M24 4 L28.5 18.5 L44 24 L28.5 29.5 L24 44 L19.5 29.5 L4 24 L19.5 18.5Z" ' + MID + '/>'
+    '<path d="M24 4 L28.5 18.5 L44 24 L28.5 29.5 L24 44 L19.5 29.5 L4 24 L19.5 18.5Z" ' + MID + '/>',
+
+  // ---- Karten-Knoten ----
+  nodeFight:
+    '<rect x="8" y="9" width="21" height="29" rx="3" ' + SOFT + ' transform="rotate(-18 18 23)"/><rect x="19" y="9" width="21" height="29" rx="3" ' + MID + ' transform="rotate(16 29 23)"/>' +
+    '<path d="M29 17 L33.5 24 L29 31 L24.5 24Z" ' + SOLID + '/>',
+  nodeElite:
+    '<path d="M10 22 Q10 8 24 8 Q38 8 38 22 Q38 29 33 31 V38 H15 V31 Q10 29 10 22Z" ' + MID + '/>' +
+    '<circle cx="18" cy="22" r="3.6" fill="#050806" stroke="none"/><circle cx="30" cy="22" r="3.6" fill="#050806" stroke="none"/>' +
+    '<path d="M22 29 L24 26 L26 29Z" fill="#050806" stroke="none"/><path d="M19 38 V33 M24 38 V33 M29 38 V33"/><path d="M9 15 L4 5 L15 11 M39 15 L44 5 L33 11"/>',
+  nodeShop:
+    '<path d="M10 17 H38 L36 42 H12Z" ' + SOFT + '/><path d="M17 17 V13 Q17 6 24 6 Q31 6 31 13 V17"/><text x="24" y="35" font-size="16" ' + T_ATTR + '>$</text>',
+  nodeEvent:
+    '<rect x="8" y="8" width="32" height="32" rx="7" ' + SOFT + '/><text x="24" y="35" font-size="28" ' + T_ATTR + '>?</text><path d="M40 4 V10 M37 7 H43" stroke-width="2"/>',
+  nodeBoss:
+    '<path d="M5 37 L5 15 L15 25 L24 8 L33 25 L43 15 L43 37Z" ' + MID + '/><path d="M5 43 H43" stroke-width="3"/>' +
+    '<circle cx="24" cy="27" r="5.2" fill="#050806" stroke="none"/><circle cx="22" cy="26" r="1.2" ' + SOLID + '/><circle cx="26" cy="26" r="1.2" ' + SOLID + '/>' +
+    '<circle cx="5" cy="12" r="2.4" ' + SOLID + '/><circle cx="24" cy="6" r="2.4" ' + SOLID + '/><circle cx="43" cy="12" r="2.4" ' + SOLID + '/>'
 };
 
 function icon(name, size) {
