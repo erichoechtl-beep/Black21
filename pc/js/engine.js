@@ -10,6 +10,7 @@ function newRunState(deckId, charmPool, seed, bonusCash) {
     blindKind: 0,
     bossForAnte: rng.pick(BOSS_IDS),
     bankroll: Tuning.startingBankroll + deck.bonusBankroll + (bonusCash || 0),
+    rerolls: Tuning.baseDiscards + deck.bonusDiscards,          // Vorrat für den ganzen Run, wird nicht pro Runde aufgefüllt
     deck: buildDeck(deckId),
     charms: [],
     consumables: [],
@@ -43,6 +44,7 @@ class GameEngine {
   sanitize() {
     const run = this.run;
     run.streak = run.streak || 0;
+    if (typeof run.rerolls !== 'number') run.rerolls = this.discardsPerRound;
     run.stats.bestStreak = run.stats.bestStreak || 0;
     run.charms = run.charms.filter(c => CHARMS[c.kind]);
     run.consumables = run.consumables.filter(c => CHEATERS[c.kind]);
@@ -127,7 +129,7 @@ class GameEngine {
       blind, rules, drawPile: pile, discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0,
       handsLeft: Math.max(1, this.handsPerRound - rules.handsPenalty),
-      discardsLeft: this.discardsPerRound, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1,
+      discardsLeft: this.run.rerolls, totalHands: Math.max(1, this.handsPerRound - rules.handsPenalty), resolved: [], lastHandScore: 0, payoutBoost: 1,
       luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null, log: [],
       // Roulette: jede Runde eine neue Glückskarte (Zahl + Farbe)
       roulette: { rank: this.rng.int(13) + 1, red: this.rng.chance(0.5) }
@@ -199,6 +201,7 @@ class GameEngine {
     this.round.discardPile.push(hand.cards[idx]);
     hand.cards[idx] = this.drawCard(true);
     this.round.discardsLeft -= 1;
+    this.run.rerolls = this.round.discardsLeft;
     this.fb('hit');
     if (this.value(hand).isBust) this.fb('bust');
     this.settlePlayerTurn();
@@ -359,7 +362,8 @@ class GameEngine {
     const m = this.run.map;
     if (!m) return [];
     if (!m.cur) return m.floors[0].map((_, i) => ({ f: 0, i }));
-    return m.floors[m.cur.f][m.cur.i].nx.map(i => ({ f: m.cur.f + 1, i }));
+    // Freie Wahl: jeder Knoten der nächsten Etage ist erreichbar (die Straßen sind nur Wegweiser)
+    return m.floors[m.cur.f + 1].map((_, i) => ({ f: m.cur.f + 1, i }));
   }
   isReachable(f, i) { return this.reachable.some(r => r.f === f && r.i === i); }
 
@@ -676,6 +680,7 @@ class GameEngine {
       this.round.handsLeft += 1; this.round.totalHands += 1;
     } else if (item.kind === 'freeRerolls') {
       this.round.discardsLeft += 2;
+      this.run.rerolls = this.round.discardsLeft;
     } else if (item.kind === 'lucky7') {
       this.round.luckMult = (this.round.luckMult || 0) + 7;
     } else if (item.kind === 'gamblersChip') {

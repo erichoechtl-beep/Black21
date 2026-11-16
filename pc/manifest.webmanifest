@@ -1,0 +1,14 @@
+{
+  "name": "Blackjack Rogue (PC)",
+  "short_name": "BJ Rogue PC",
+  "description": "The desktop layout of Blackjack Rogue.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030504",
+  "theme_color": "#030504",
+  "icons": [
+    { "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "../icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

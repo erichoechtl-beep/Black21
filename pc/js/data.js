@@ -152,7 +152,7 @@ const CHEATERS = {
   lucky7: { name: 'Lucky 7', text: '+7 Mult on this hand.', price: 4, needsCardTarget: false, inRoundOnly: true, tone: 'blue' },
   loadTheDice: { name: 'Loaded Dice', text: 'This hand pays double.', price: 4, needsCardTarget: false, inRoundOnly: true, tone: 'black' },
   extraHand: { name: 'Extra Hand', text: '+1 hand this round.', price: 5, needsCardTarget: false, inRoundOnly: true, tone: 'green' },
-  freeRerolls: { name: 'Reroll Pack', text: '+2 rerolls this round.', price: 3, needsCardTarget: false, inRoundOnly: true, tone: 'purple' }
+  freeRerolls: { name: 'Reroll Pack', text: '+2 rerolls for the run.', price: 3, needsCardTarget: false, inRoundOnly: true, tone: 'purple' }
 };
 const CHEATER_IDS = Object.keys(CHEATERS);
 

@@ -1182,3 +1182,13 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 .hud-top > div.hud-l:first-child { flex-direction: row; align-items: center; gap: 10px; }
 #phone.compact .scoreboard .goal .bar { height: 6px; margin: 2px 0; }
 @media (max-height: 640px) { #phone .t-fx { display: none; } #phone .scoreboard .goal-live .t-read { font-size: 22px; } }
+
+/* ---- Karte: Knoten auswählen, Info und GO ---- */
+.mnode.sel { animation: none; transform: scale(1.14); z-index: 3; box-shadow: 0 0 0 4px rgba(255, 255, 255, .35), 0 0 24px var(--nc); background: color-mix(in srgb, var(--nc) 32%, #07130d); }
+.mnode.sel .mlab { color: #fff; }
+.map-info { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 2px solid var(--nc); border-radius: 14px; background: rgba(0, 0, 0, .5); margin: 0 4px; }
+.mi-ico { flex: none; color: var(--nc); display: flex; }
+.mi-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mi-tx b { font-size: 15px; letter-spacing: 2px; color: var(--nc); }
+.mi-tx span { font-size: 11px; color: var(--muted); line-height: 1.25; }
+.map-info .tbtn { min-width: 64px; }

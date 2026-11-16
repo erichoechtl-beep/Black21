@@ -4,7 +4,7 @@
 
 const App = {
   screen: 'menu', meta: Save.loadMeta(), engine: null, summary: null,
-  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [], fit: 1, fitTries: 0, fitRaf: 0, compact: false,
+  pickingDeck: false, abandonArmed: false, shopTab: 'decks', backEmblem: null, rlBet: 1, rlColor: 'red', rlAngle: 0, fxSources: [], fit: 1, fitTries: 0, fitRaf: 0, compact: false, mapSel: null,
   burnMode: false, pendingTrick: null, inspected: '',
   bodyKey: null, lastPhase: null, lastMoney: null, bjUntil: 0, bjSeen: new Set(),
   dealerTimer: null, tallyToken: 0, tallyKey: null, tallyDoneKey: null, suppressClick: false
@@ -92,7 +92,12 @@ const ACTIONS = {
   'split': () => App.engine.split(),
   'burn': () => { App.burnMode = !App.burnMode; App.pendingTrick = null; renderApp(); },
   'continue-hand': () => App.engine.acknowledgeResult(),
-  'node': t => App.engine.chooseNode(Number(t.dataset.f), Number(t.dataset.i)),
+  'node': t => {
+    const f = Number(t.dataset.f), i = Number(t.dataset.i);
+    if (App.mapSel && App.mapSel.f === f && App.mapSel.i === i) { App.mapSel = null; App.engine.chooseNode(f, i); }   // zweites Antippen = losgehen
+    else { App.mapSel = { f, i }; haptic('tap'); renderApp(); }
+  },
+  'node-go': () => { const s = App.mapSel; App.mapSel = null; if (s) App.engine.chooseNode(s.f, s.i); },
   'event-opt': t => App.engine.eventChoose(Number(t.dataset.i)),
   'event-done': () => { if (!App.spinning) App.engine.eventDone(); },
   'rl-bet': t => { App.rlBet = Number(t.dataset.v); renderApp(); },
@@ -446,7 +451,7 @@ function renderRun() {
     appEl().innerHTML = RUN_SKELETON;
     App.bodyKey = null;
   }
-  if (App.lastPhase !== E.phase) { App.burnMode = false; App.pendingTrick = null; if (E.phase !== 'blindSelect') App.abandonArmed = false; }
+  if (App.lastPhase !== E.phase) { App.mapSel = null; App.burnMode = false; App.pendingTrick = null; if (E.phase !== 'blindSelect') App.abandonArmed = false; }
   App.lastPhase = E.phase;
   updateHud(E);
 
@@ -783,7 +788,7 @@ function actionsHtml(E) {
     let extras = '';
     if (E.canDouble) extras += btn('double', 'DOUBLE $' + Tuning.doubleDownCost, true, 'dimmed');
     if (E.canSplit) extras += btn('split', 'SPLIT', true, 'dimmed');
-    if (E.round.discardsLeft > 0) extras += btn('burn', App.burnMode ? 'CANCEL' : 'REROLL (' + E.round.discardsLeft + ')', E.canBurn, App.burnMode ? 'red' : 'dimmed');
+    extras += btn('burn', App.burnMode ? 'CANCEL' : 'REROLL (' + E.round.discardsLeft + ')', E.canBurn, App.burnMode ? 'red' : 'dimmed');
     return '<div class="col" style="gap:8px;padding-bottom:4px"><div class="row">' +
       btn('hit', BTN_PLUS + 'HIT', E.canHit, 'big green') + btn('stand', BTN_HOLD + 'STAND', E.canStand, 'big') + '</div>' +
       (extras ? '<div class="row">' + extras + '</div>' : '') + '</div>';
@@ -958,29 +963,43 @@ function nodePos(m, f, i) {
 function mapHtml(E) {
   const run = E.run, m = run.map, reach = E.reachable;
   const isReach = (f, i) => reach.some(r => r.f === f && r.i === i);
+  const sel = App.mapSel && isReach(App.mapSel.f, App.mapSel.i) ? App.mapSel : null;
   let lines = '', nodes = '';
+  const road = (a, b, cls, bend) => {
+    const dd = 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' Q' + ((a.x + b.x) / 2 + bend).toFixed(1) + ' ' + ((a.y + b.y) / 2).toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
+    return '<path class="rd ' + cls + '" d="' + dd + '"/><path class="rc ' + cls + '" d="' + dd + '"/>';
+  };
   m.floors.forEach((row, f) => row.forEach((n, i) => {
     const a = nodePos(m, f, i);
     if (f + 1 < m.floors.length) n.nx.forEach(j => {
-      const b = nodePos(m, f + 1, j), tn = m.floors[f + 1][j];
+      const tn = m.floors[f + 1][j];
       let cls = 'dim';
       if (n.done && tn.done) cls = 'path';
       else if (m.cur && m.cur.f === f && m.cur.i === i && isReach(f + 1, j)) cls = 'next';
-      const bend = ((f * 3 + i * 5 + j * 7 + m.ante) % 5 - 2) * 4.5;
-      const dd = 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' Q' + ((a.x + b.x) / 2 + bend).toFixed(1) + ' ' + ((a.y + b.y) / 2).toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
-      lines += '<path class="rd ' + cls + '" d="' + dd + '"/><path class="rc ' + cls + '" d="' + dd + '"/>';
+      lines += road(a, nodePos(m, f + 1, j), cls, ((f * 3 + i * 5 + j * 7 + m.ante) % 5 - 2) * 4.5);
     });
-    const reachable = isReach(f, i), isCur = !!m.cur && m.cur.f === f && m.cur.i === i;
-    const cls = 'mnode t-' + n.t + (n.done ? ' done' : '') + (reachable ? ' reach' : '') + (isCur ? ' cur' : '') + (!n.done && !reachable ? ' locked' : '');
+    const reachable = isReach(f, i), isCur = !!m.cur && m.cur.f === f && m.cur.i === i, isSel = !!sel && sel.f === f && sel.i === i;
+    const cls = 'mnode t-' + n.t + (n.done ? ' done' : '') + (reachable ? ' reach' : '') + (isCur ? ' cur' : '') + (isSel ? ' sel' : '') + (!n.done && !reachable ? ' locked' : '');
     nodes += '<button class="' + cls + '" style="left:' + a.x + '%;top:' + a.y + '%" data-act="node" data-f="' + f + '" data-i="' + i + '"' + (reachable ? '' : ' disabled') + ' aria-label="' + NODE_INFO[n.t].name + '">' +
       icon(NODE_ICON[n.t], n.t === 'boss' ? 38 : 30) + (n.done ? '<i class="mchk">&#10003;</i>' : '') +
       (reachable ? '<span class="mlab">' + NODE_INFO[n.t].name + '</span>' : '') + (isCur ? '<span class="mlab you">YOU</span>' : '') + '</button>';
   }));
+  // Freie Wahl: auch zu Knoten, die nicht direkt verbunden sind, führt ein leuchtender Weg
+  if (m.cur) {
+    const cn = m.floors[m.cur.f][m.cur.i], ca = nodePos(m, m.cur.f, m.cur.i);
+    reach.forEach(r => { if (!cn.nx.includes(r.i)) lines += road(ca, nodePos(m, r.f, r.i), 'next', ((r.f * 5 + r.i * 3 + m.ante) % 5 - 2) * 4.5); });
+  }
+  let info = '';
+  if (sel) {
+    const t = m.floors[sel.f][sel.i].t;
+    info = '<div class="map-info t-' + t + '"><div class="mi-ico">' + icon(NODE_ICON[t], 30) + '</div><div class="mi-tx"><b>' + NODE_INFO[t].name + '</b><span>' + NODE_INFO[t].blurb + '</span></div>' +
+      '<button class="tbtn small green" data-act="node-go">GO</button></div>';
+  }
   const legend = ['fight', 'elite', 'shop', 'event', 'boss'].map(t => '<span class="lg t-' + t + '">' + icon(NODE_ICON[t], 16) + NODE_INFO[t].name + '</span>').join('');
   return '<div class="col mapwrap" style="flex:1;min-height:0;gap:6px;padding-bottom:2px">' +
     '<div class="map-title"><b>TABLE ' + run.ante + '</b><span>' + (m.cur ? 'PICK YOUR NEXT STOP' : 'CHOOSE YOUR PATH') + '</span></div>' +
     '<div class="map"><div class="map-in"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div></div>' +
-    '<div class="legend">' + legend + '</div>' + mapGearHtml(E) +
+    (info || '<div class="legend">' + legend + '</div>') + mapGearHtml(E) +
     '<div class="row"><button class="tbtn dimmed" data-act="menu">MENU</button><button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'SURE? TAP AGAIN' : 'GIVE UP') + '</button></div></div>';
 }
 // Kleine Leiste mit deinen Charms (Walzen) und Items (Chips), statt der großen Maschine
@@ -1102,7 +1121,7 @@ function blindHtml(E) {
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
     '<div class="center small dim" style="margin-top:-6px">' + esc(opp.intro) + '</div>' +
     '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
-    '<div class="small dim" style="margin-top:4px">REWARD $' + kind.reward + ' &middot; ' + hands + ' HANDS &middot; ' + E.discardsPerRound + ' REROLLS</div></div>' +
+    '<div class="small dim" style="margin-top:4px">REWARD $' + kind.reward + ' &middot; ' + hands + ' HANDS &middot; ' + E.run.rerolls + ' REROLLS LEFT</div></div>' +
     ahead + '<div class="spacer"></div>' +
     slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, false) : '') +
     '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
