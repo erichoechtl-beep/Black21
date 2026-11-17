@@ -66,6 +66,12 @@ class GameEngine {
 
   // ----- Hilfen -----
   fb(cue) { if (this.hooks.feedback) this.hooks.feedback(cue); }
+  ach(id) { if (this.hooks.onAchieve) this.hooks.onAchieve(id); }
+  checkGear() {
+    const cs = this.run.charms;
+    if (cs.length >= Tuning.charmSlots) this.ach('fullSlots');
+    if (cs.some(c => CHARMS[c.kind].rarity === 'legendary')) this.ach('legend');
+  }
   emit() { if (this.hooks.onChange) this.hooks.onChange(); }
   checkpoint() {
     this.run.rngState = this.rng.state;
@@ -115,7 +121,7 @@ class GameEngine {
       hardValue(h.cards[0].rank) === hardValue(h.cards[1].rank);
   }
   get canBurn() { const h = this.activeHand; return this.canHit && this.round.discardsLeft > 0 && !h.isDoubled; }
-  get handsPerRound() { return Math.max(1, Tuning.baseHands + DECKS[this.run.deckType].bonusHands); }
+  get handsPerRound() { return Math.max(1, Tuning.baseHands + DECKS[this.run.deckType].bonusHands + (this.run.charms.some(c => c.kind === 'nightShift') ? 1 : 0)); }
   get discardsPerRound() { return Tuning.baseDiscards + DECKS[this.run.deckType].bonusDiscards; }
 
   // ----- Rundenablauf -----
@@ -258,7 +264,7 @@ class GameEngine {
       const outcome = resolveOutcome(v, natural, dv, dealerNatural);
       const breakdown = scoreHand({
         hand, value: v, outcome, isNatural: natural, charms: this.run.charms,
-        bankroll: this.run.bankroll, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, roulette: r.roulette, streak: streakBefore
+        bankroll: this.run.bankroll, tables: this.run.stats.tablesCleared, firstHand: r.log.length === 0, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, roulette: r.roulette, streak: streakBefore
       });
       // Knapp daneben: genau 1 Punkt zu wenig, oder Bust mit 22
       if (!nearMiss) {
@@ -271,7 +277,13 @@ class GameEngine {
       cash += breakdown.cash;
       if (outcome === 'bust') fees += r.rules.bustPenalty;
       this.run.stats.bestHand = Math.max(this.run.stats.bestHand, total);
+      if (outcome === 'win' && natural) this.ach('natural');
+      if (total >= 1000) this.ach('big1k');
+      if (total >= 10000) this.ach('big10k');
+      if (outcome !== 'bust' && breakdown.mult * breakdown.factor >= 10) this.ach('mult10');
     }
+    const winsNow = results.filter(x => x.outcome === 'win').length;
+    if (winsNow) for (const c of this.run.charms) if (c.kind === 'snowball') c.stack = (c.stack || 0) + winsNow;
     r.payoutBoost = 1;
     r.luckMult = 0;
     r.hotChips = 0;
@@ -287,6 +299,7 @@ class GameEngine {
     else if (anyWin) {
       this.run.streak = streakBefore + 1; r.streakEvent = 'up';
       this.run.stats.bestStreak = Math.max(this.run.stats.bestStreak || 0, this.run.streak);
+      if (this.run.streak >= 5) this.ach('streak5');
     } else r.streakEvent = '';
     this.run.bankroll = Math.max(0, this.run.bankroll + cash - fees);
     this.run.stats.handsPlayed += 1;
@@ -322,12 +335,11 @@ class GameEngine {
 
   // ----- Auszahlung & Fortschritt -----
   prepareCashOut() {
-    const reward = BLIND_KINDS[this.round.blind.kind].reward;   // Elite zahlt mehr (siehe BLIND_KINDS)
+    const mod = this.round.blind.mod;
+    const reward = BLIND_KINDS[this.round.blind.kind].reward + (mod ? MOD_INFO[mod].reward : 0);   // Elite und heisse Tische zahlen mehr
     const handsBonus = Math.max(0, this.round.handsLeft);
     const interest = Math.min(Math.floor(this.run.bankroll / Tuning.interestStep), Tuning.interestCap);
-    // Das Glücksrad gibt es nicht immer: nach jedem Boss sicher, sonst nur manchmal
-    const spinEarned = this.round.blind.kind >= 1 || this.rng.chance(0.3);
-    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, spinEarned };
+    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, mod };
     this.fb('win');
   }
 
@@ -339,6 +351,9 @@ class GameEngine {
     const blind = this.round.blind;
     const runComplete = blind.kind === 2 && blind.ante >= Tuning.finalAnte;
     if (blind.kind === 2) run.stats.tablesCleared += 1;
+    this.ach('firstWin');
+    if (blind.kind === 2) this.ach('bossDown');
+    if (runComplete) this.ach('champion');
     if (!runComplete) { this.completeNode(); if (blind.kind === 2) this.nextTable(); }
     if (!this.fire({ type: 'cashedOut', runComplete })) return;
     this.cashOut = null;
@@ -370,9 +385,10 @@ class GameEngine {
   chooseNode(f, i) {
     if (this.phase !== 'map' || !this.isReachable(f, i)) { this.fb('error'); return; }
     const run = this.run, node = run.map.floors[f][i];
-    run.pending = { f, i };
+    run.pending = { f, i, mod: node.mod || null };
     let next;
     if (node.t === 'shop') { this.generateShop(); next = 'shop'; }
+    else if (node.t === 'treasure') { run.event = this.rollTreasure(); next = 'event'; }
     else if (node.t === 'event') { run.event = this.rollEvent(); next = 'event'; }
     else {
       run.blindKind = node.t === 'boss' ? 2 : node.t === 'elite' ? 1 : 0;
@@ -410,6 +426,66 @@ class GameEngine {
     for (const id of EVENT_IDS) { if (roll < EVENTS[id].weight) { pick = id; break; } roll -= EVENTS[id].weight; }
     return { id: pick, stage: 'choose', spins: 0, last: null, result: null };
   }
+  rollTreasure() {
+    const choices = this.pickCharms(3, 3);
+    // Ein Schatz soll sich lohnen: mindestens eine Auswahl ist besser als gewöhnlich (falls es so etwas gibt)
+    if (choices.length && !choices.some(k => CHARMS[k].rarity !== 'common')) {
+      const owned = new Set(this.run.charms.map(c => c.kind));
+      const up = this.run.charmPool.filter(id => !owned.has(id) && !choices.includes(id) && CHARMS[id].rarity !== 'common');
+      if (up.length) choices[choices.length - 1] = this.rng.pick(up);
+    }
+    return { id: 'treasure', stage: 'choose', spins: 0, last: null, result: null, choices };
+  }
+  treasurePick(idx) {
+    const run = this.run, ev = run.event;
+    if (this.phase !== 'event' || !ev || ev.id !== 'treasure' || ev.stage !== 'choose') return;
+    const kind = ev.choices[idx];
+    if (!kind) return;
+    if (run.charms.length >= Tuning.charmSlots) { this.fb('error'); return; }
+    run.charms.push({ uid: newId(), kind });
+    if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind });
+    this.ach('treasure'); this.checkGear();
+    ev.stage = 'result';
+    ev.result = { text: CHARMS[kind].name + '!', good: true };
+    this.fb('purchase');
+    this.checkpoint();
+    this.emit();
+  }
+  // Glücksrad-Ereignis: ein Dreh gratis, ein zweiter kostet $3
+  wheelCost() { const ev = this.run.event; return ev && ev.spins >= 1 ? 3 : 0; }
+  eventWheelSpin() {
+    const run = this.run, ev = run.event;
+    if (this.phase !== 'event' || !ev || ev.id !== 'wheel' || ev.spins >= 2) return null;
+    const cost = this.wheelCost();
+    if (run.bankroll < cost) { this.fb('error'); return null; }
+    run.bankroll -= cost;
+    let roll = this.rng.int(WHEEL.reduce((a, s) => a + s.weight, 0)), idx = 0;
+    for (; idx < WHEEL.length - 1; idx++) { if (roll < WHEEL[idx].weight) break; roll -= WHEEL[idx].weight; }
+    const seg = WHEEL[idx];
+    let text = '';
+    if (seg.kind === 'cash') { run.bankroll = Math.max(0, run.bankroll + seg.value); text = (seg.value < 0 ? '-$' : '+$') + Math.abs(seg.value); }
+    else if (seg.kind === 'jackpot') { run.bankroll += seg.value; text = 'JACKPOT +$' + seg.value; this.ach('jackpot'); }
+    else if (seg.kind === 'item') {
+      if (run.consumables.length < Tuning.consumableSlots) { run.consumables.push({ uid: newId(), kind: seg.item }); text = CHEATERS[seg.item].name.toUpperCase(); }
+      else { run.bankroll += 3; text = 'ITEMS FULL: +$3'; }
+    }
+    ev.spins += 1;
+    ev.last = { index: idx, id: seg.id, text, kind: seg.kind };
+    this.checkpoint();
+    return ev.last;
+  }
+  // Seltenheit zählt: seltene Charms tauchen später und seltener auf; bonus erhöht die Chance auf Rare und besser
+  pickCharms(n, bonus) {
+    const run = this.run, owned = new Set(run.charms.map(c => c.kind));
+    const pool = run.charmPool.filter(id => !owned.has(id)), out = [];
+    while (out.length < n && pool.length) {
+      const ws = pool.map(id => charmWeight(id, run.ante, bonus));
+      let r = this.rng.next() * ws.reduce((a, x) => a + x, 0), k = 0;
+      for (; k < pool.length - 1; k++) { if (r < ws[k]) break; r -= ws[k]; }
+      out.push(pool.splice(k, 1)[0]);
+    }
+    return out;
+  }
   eventChoose(idx) {
     const run = this.run, ev = run.event;
     if (this.phase !== 'event' || !ev || ev.stage !== 'choose') return;
@@ -427,8 +503,8 @@ class GameEngine {
       else { run.bankroll += 2; text = 'Items full. +$2'; }
     }
     if (out.charm) {
-      const pool = run.charmPool.filter(id => !run.charms.some(c => c.kind === id));
-      if (run.charms.length < Tuning.charmSlots && pool.length) { const kind = this.rng.pick(pool); run.charms.push({ uid: newId(), kind }); text = CHARMS[kind].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind }); }
+      const pool = this.pickCharms(1, 1.5);
+      if (run.charms.length < Tuning.charmSlots && pool.length) { const kind = pool[0]; run.charms.push({ uid: newId(), kind }); text = CHARMS[kind].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind }); this.checkGear(); }
       else { run.bankroll += 3; text = 'Nothing to give. +$3'; }
     }
     if (out.upgrade) {
@@ -453,6 +529,7 @@ class GameEngine {
     run.bankroll += payout;
     ev.spins += 1;
     ev.last = { slot, landed, color, bet, win, payout, net: payout - bet };
+    if (win && landed === 'green') this.ach('jackpot');
     this.checkpoint();
     return ev.last;
   }
@@ -526,24 +603,6 @@ class GameEngine {
     if (this.hooks.onRunEnded) this.hooks.onRunEnded(this.summary);
   }
 
-  // ----- Glücksrad nach einem geschafften Blind -----
-  spinWheel() {
-    if (this.phase !== 'roundCleared' || !this.cashOut || this.cashOut.spin || !this.cashOut.spinEarned) return null;
-    let roll = this.rng.int(WHEEL.reduce((a, s) => a + s.weight, 0)), idx = 0;
-    for (; idx < WHEEL.length - 1; idx++) { if (roll < WHEEL[idx].weight) break; roll -= WHEEL[idx].weight; }
-    const seg = WHEEL[idx], run = this.run, co = this.cashOut;
-    let text = '';
-    if (seg.kind === 'cash') { co.total += seg.value; text = '+$' + seg.value; }
-    else if (seg.kind === 'double') { co.total *= 2; text = 'REWARD x2'; }
-    else if (seg.kind === 'jackpot') { co.total += seg.value; text = 'JACKPOT +$' + seg.value; }
-    else if (seg.kind === 'item') {
-      if (run.consumables.length < Tuning.consumableSlots) { run.consumables.push({ uid: newId(), kind: seg.item }); text = CHEATERS[seg.item].name.toUpperCase(); }
-      else { co.total += 3; text = 'ITEMS FULL: +$3'; }
-    }
-    co.spin = { index: idx, id: seg.id, text, kind: seg.kind };
-    return co.spin;
-  }
-
   // ----- Karten ziehen -----
   drawCard(forPlayer) {
     const r = this.round;
@@ -585,12 +644,11 @@ class GameEngine {
     const run = this.run;
     const offers = [];
     const owned = new Set(run.charms.map(c => c.kind));
-    const pool = this.rng.shuffle(run.charmPool.filter(id => !owned.has(id)));
     // VIP-Karte: alles im Shop kostet $1 weniger (mindestens $1)
     const vip = owned.has('vipCard') ? 1 : 0;
     const cost = p => Math.max(1, p - vip);
     // Einfacher Shop: zwei Charms (bleiben) und ein Item (einmalig benutzbar)
-    for (const kind of pool.slice(0, 2)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: cost(CHARMS[kind].price), isSold: false });
+    for (const kind of this.pickCharms(2, 1)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: cost(CHARMS[kind].price), isSold: false });
     const cheater = this.rng.pick(CHEATER_IDS);
     offers.push({ id: newId(), item: { type: 'cheater', kind: cheater }, price: cost(CHEATERS[cheater].price), isSold: false });
     // Kartenverbesserung: eine zufällige einfache Karte wird zu Folie, Holo oder Gold
@@ -610,6 +668,7 @@ class GameEngine {
       if (run.charms.length >= Tuning.charmSlots) { this.fb('error'); return; }
       run.charms.push({ uid: newId(), kind: it.kind });
       if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: it.kind });
+      this.checkGear();
     } else if (it.type === 'cheater') {
       if (run.consumables.length >= Tuning.consumableSlots) { this.fb('error'); return; }
       run.consumables.push({ uid: newId(), kind: it.kind });
@@ -645,9 +704,9 @@ class GameEngine {
     this.emit();
   }
 
-  sellValue(charm) { return Math.max(1, Math.floor(CHARMS[charm.kind].price / 2)); }
+  sellValue(charm) { const c = CHARMS[charm.kind]; return Math.max(1, Math.floor(c.price * 0.6)); }
   sell(charmUid) {
-    if (this.phase !== 'shop') return;
+    if (!['shop', 'map', 'blindSelect', 'event', 'roundCleared', 'playerTurn'].includes(this.phase)) return;
     const i = this.run.charms.findIndex(c => c.uid === charmUid);
     if (i < 0) return;
     this.run.bankroll += this.sellValue(this.run.charms[i]);

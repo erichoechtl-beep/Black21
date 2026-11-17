@@ -102,6 +102,79 @@ const ICON_48 = {
     '<text x="24" y="35" font-size="34" ' + T_ATTR + '>7</text>' +
     '<path d="M40 5 V12 M36.5 8.5 H43.5 M7 7 V12 M4.5 9.5 H9.5 M40 37 V42 M37.5 39.5 H42.5" stroke-width="2"/>',
 
+  // ---- Neue Charms ----
+  tipJar:
+    '<path d="M12 15 H36 V37 Q36 42 31 42 H17 Q12 42 12 37Z" ' + SOFT + '/><path d="M10 15 H38 M14 10 H34"/>' +
+    '<text x="24" y="35" font-size="15" ' + T_ATTR + '>$</text><circle cx="24" cy="5" r="2.6" ' + SOLID + '/>',
+  coffeeCup:
+    '<path d="M9 19 H33 V30 Q33 40 21 40 Q9 40 9 30Z" ' + SOFT + '/><path d="M33 22 H37 Q41 22 41 26.5 Q41 31 35 31"/>' +
+    '<path d="M15 6 Q12 10 15 13 M21 5 Q18 9 21 12 M27 6 Q24 10 27 13" stroke-width="2"/>',
+  chalk:
+    '<rect x="7" y="23" width="26" height="8" rx="2" ' + MID + ' transform="rotate(-32 20 27)"/>' +
+    '<path d="M28 33 V43 M33 33 V43 M38 33 V43 M24 36 L42 40" stroke-width="2.2"/>',
+  penny:
+    '<circle cx="24" cy="24" r="17" ' + SOFT + '/><circle cx="24" cy="24" r="12" stroke-width="1.6" stroke-dasharray="3 2.5"/>' +
+    '<text x="24" y="30" font-size="16" ' + T_ATTR + '>1</text>',
+  gamblersRing:
+    '<circle cx="24" cy="31" r="12" stroke-width="4" opacity=".8"/>' +
+    '<path d="M16 13 L20 6 H28 L32 13 L24 22Z" ' + MID + '/><path d="M16 13 H32 M20 6 L24 22 M28 6 L24 22" stroke-width="1.4"/>',
+  luckyCoin:
+    '<circle cx="24" cy="24" r="18" ' + SOFT + '/>' +
+    '<g ' + SOLID + ' opacity=".85"><circle cx="24" cy="15.5" r="5"/><circle cx="24" cy="32.5" r="5"/><circle cx="15.5" cy="24" r="5"/><circle cx="32.5" cy="24" r="5"/></g>' +
+    '<path d="M24 24 L32 41" stroke-width="2"/>',
+  redEnvelope:
+    '<rect x="9" y="5" width="30" height="38" rx="4" ' + MID + '/><path d="M9 9 Q24 28 39 9" stroke-width="2.2"/>' +
+    '<circle cx="24" cy="27" r="5.5" fill="#050806" stroke="currentColor" stroke-width="1.6"/><path d="M24 24 V30 M21.5 27 H26.5" stroke-width="1.5"/>',
+  blackCat:
+    '<path d="M9 41 V15 L16 7 L22 14 H26 L32 7 L39 15 V41Z" ' + MID + '/>' +
+    '<ellipse cx="18" cy="25" rx="3" ry="4" fill="#050806" stroke="none"/><ellipse cx="30" cy="25" rx="3" ry="4" fill="#050806" stroke="none"/>' +
+    '<ellipse cx="18" cy="25" rx="1" ry="3.2" ' + SOLID + '/><ellipse cx="30" cy="25" rx="1" ry="3.2" ' + SOLID + '/>' +
+    '<path d="M22 32 L24 34 L26 32Z" fill="#050806" stroke="none"/><path d="M5 31 H14 M5 36 H14 M34 31 H43 M34 36 H43" stroke-width="1.6"/>',
+  cardShark:
+    '<rect x="9" y="6" width="22" height="30" rx="3" ' + SOFT + '/>' +
+    '<path d="M4 41 Q18 14 28 9 Q27 30 44 41Z" ' + MID + '/><path d="M3 44 q5 -3 10 0 t10 0 t10 0 t10 0" stroke-width="2"/>',
+  highRollerChip:
+    '<circle cx="24" cy="24" r="19" ' + SOFT + '/><circle cx="24" cy="24" r="13" stroke-dasharray="5 3.4" stroke-width="2.4"/>' +
+    '<text x="24" y="31" font-size="19" ' + T_ATTR + '>$</text><path d="M24 2 V6 M24 42 V46 M2 24 H6 M42 24 H46" stroke-width="2"/>',
+  casinoCrown:
+    '<path d="M5 36 L7 14 L16 24 L24 7 L32 24 L41 14 L43 36Z" ' + MID + '/><path d="M5 42 H43" stroke-width="3"/>' +
+    '<circle cx="7" cy="11" r="2.6" ' + SOLID + '/><circle cx="24" cy="4.5" r="2.6" ' + SOLID + '/><circle cx="41" cy="11" r="2.6" ' + SOLID + '/>' +
+    '<text x="24" y="34" font-size="13" fill="#050806" stroke="none" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">K</text>',
+  loadedDeck:
+    '<rect x="14" y="9" width="24" height="32" rx="3" ' + SOFT + ' transform="rotate(9 26 25)"/>' +
+    '<rect x="9" y="7" width="24" height="32" rx="3" ' + MID + '/>' +
+    '<text x="21" y="31" font-size="21" fill="#050806" stroke="none" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">A</text>' +
+    '<path d="M38 7 V15 M34 11 H42" stroke-width="2.2"/>',
+  nightShift:
+    '<path d="M31 6 A17 17 0 1 0 42 31 A14 14 0 0 1 31 6Z" ' + MID + '/>' +
+    '<path d="M38 8 V14 M35 11 H41" stroke-width="2"/><circle cx="41" cy="22" r="1.8" ' + SOLID + '/>' +
+    '<text x="22" y="30" font-size="13" fill="#050806" stroke="none" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">+1</text>',
+  joker:
+    '<path d="M5 33 Q7 15 12 8 Q17 20 24 20 Q31 20 36 8 Q41 15 43 33Z" ' + MID + '/><path d="M5 38 H43" stroke-width="3"/>' +
+    '<circle cx="12" cy="7" r="3.2" ' + SOLID + '/><circle cx="36" cy="7" r="3.2" ' + SOLID + '/><circle cx="24" cy="31" r="3.4" ' + SOLID + ' opacity=".9"/>' +
+    '<path d="M20 44 H28" stroke-width="2"/>',
+  midas:
+    '<circle cx="24" cy="26" r="15" ' + MID + '/><text x="24" y="33" font-size="21" fill="#050806" stroke="none" font-weight="700" text-anchor="middle" font-family="Menlo,Consolas,monospace">$</text>' +
+    '<path d="M39 4 V12 M35 8 H43 M7 6 V12 M4 9 H10 M42 33 V39 M39 36 H45" stroke-width="2"/>',
+  snowball:
+    '<circle cx="30" cy="27" r="14" ' + SOFT + '/><path d="M21 22 Q26 17 33 19" stroke-width="2" opacity=".8"/>' +
+    '<circle cx="12" cy="33" r="4.5" ' + MID + '/><circle cx="5.5" cy="38.5" r="2.6" ' + SOLID + ' opacity=".7"/>' +
+    '<text x="31" y="32" font-size="12" ' + T_ATTR + '>+1</text>',
+  veteran:
+    '<circle cx="24" cy="19" r="13" ' + MID + '/><path d="M15 30 L10 44 L24 38 L38 44 L33 30" ' + SOFT + '/>' +
+    '<path d="M17 13 L24 26 L31 13" stroke="#050806" stroke-width="3.4"/>',
+  // ---- Schatzraum und Trophäe ----
+  nodeTreasure:
+    '<path d="M6 21 Q6 8 24 8 Q42 8 42 21Z" ' + MID + '/><rect x="6" y="21" width="36" height="20" rx="3" ' + SOFT + '/>' +
+    '<rect x="20.5" y="25" width="7" height="9" rx="1.5" ' + SOLID + '/><path d="M6 21 H42"/>' +
+    '<path d="M40 3 V9 M37 6 H43 M8 3 V8 M5.5 5.5 H10.5" stroke-width="2"/>',
+  trophy:
+    '<path d="M13 7 H35 V19 Q35 30 24 30 Q13 30 13 19Z" ' + MID + '/><path d="M13 11 H7 Q7 22 14 24 M35 11 H41 Q41 22 34 24"/>' +
+    '<path d="M24 30 V38 M16 42 H32 M18 38 H30" stroke-width="2.6"/>',
+  wheel:
+    '<circle cx="24" cy="24" r="18" ' + SOFT + '/><circle cx="24" cy="24" r="4"/>' +
+    '<path d="M24 6 V20 M24 28 V42 M6 24 H20 M28 24 H42 M11.3 11.3 L21 21 M27 27 L36.7 36.7 M36.7 11.3 L27 21 M21 27 L11.3 36.7" stroke-width="1.8"/>',
+
   // ---- Deck-Icons ----
   deckHouse:
     '<rect x="14" y="8" width="22" height="30" rx="3" ' + SOFT + ' transform="rotate(-12 25 23)"/><rect x="14" y="8" width="22" height="30" rx="3" ' + SOFT + ' transform="rotate(10 25 23)"/>' +

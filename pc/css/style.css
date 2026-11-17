@@ -1192,3 +1192,92 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 .mi-tx b { font-size: 15px; letter-spacing: 2px; color: var(--nc); }
 .mi-tx span { font-size: 11px; color: var(--muted); line-height: 1.25; }
 .map-info .tbtn { min-width: 64px; }
+
+/* ================= Runde 14: Seltenheiten, Karte v3, Schatz, K.O., Mult-Feuerwerk, Erfolge ================= */
+/* ---- Seltenheitsstufen der Charms: gewöhnlich (grün), ungewöhnlich (gold), selten (blau), episch (lila), legendär (leuchtendes Gold) ---- */
+.badge.epic { color: #c77dff; box-shadow: 0 0 10px rgba(199, 125, 255, .35); }
+.badge.legendary { color: #ffd54a; box-shadow: 0 0 14px rgba(255, 213, 74, .6); animation: legpulse 2s ease-in-out infinite; }
+@keyframes legpulse { 50% { box-shadow: 0 0 24px rgba(255, 213, 74, .95); } }
+.mreel.epic { color: #c77dff; } .mreel.legendary { color: #ffd54a; opacity: .95; box-shadow: 0 0 8px rgba(255, 213, 74, .65); }
+.reel.epic { color: #7b2fbf; } .reel.legendary { color: #b87400; background: linear-gradient(180deg, #a07a20 0%, #ffeaa0 18%, #fff7d0 50%, #ffeaa0 82%, #a07a20 100%); }
+.mreel.sel { opacity: 1; outline: 2px solid #ffd54a; outline-offset: -2px; }
+.offer:has(.badge.epic) { border-color: #c77dff; box-shadow: 0 0 16px rgba(199, 125, 255, .45); }
+.offer:has(.badge.legendary) { border-color: #ffd54a; box-shadow: 0 0 20px rgba(255, 213, 74, .6); background: linear-gradient(100deg, rgba(0, 0, 0, .4) 40%, rgba(255, 226, 122, .2) 50%, rgba(0, 0, 0, .4) 60%) 0 0 / 250% 100%; animation: shimmer 2.4s linear infinite; }
+.rar { display: inline-block; font-size: 9px; letter-spacing: 1.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; border: 1px solid currentColor; vertical-align: middle; line-height: 1.3; }
+.offer .rar { display: table; margin-bottom: 3px; }
+.rar.r-common { color: #8fd48a; } .rar.r-uncommon { color: #e0b04a; } .rar.r-rare { color: #5ff0ff; } .rar.r-epic { color: #c77dff; }
+.rar.r-legendary { color: #1a1000; background: linear-gradient(90deg, #ffd54a, #fff3b0, #ffd54a); border-color: #ffd54a; }
+
+/* ---- Karte v3: Kampf-Varianten und Schatzraum ---- */
+.t-treasure { --nc: #5ff0ff; }
+.mmod { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 8px; font-weight: 700; letter-spacing: 1px; padding: 1px 5px; border-radius: 7px; white-space: nowrap; color: #1a0a00; background: #ff7a2a; border: 1px solid #fff3; }
+.mmod.easy { background: #6dffb0; }
+.mnode.mod-hot { box-shadow: 0 0 10px rgba(255, 122, 42, .6); }
+.mnode.t-treasure.reach { animation: nodepulse 1.1s ease-in-out infinite; }
+.map-info .mi-tx span { font-size: 10.5px; }
+.map-gear .detail, .mapwrap > .detail { margin: 0 4px; padding: 5px 10px; min-height: 40px; }
+
+/* ---- Schatzraum ---- */
+.tcard { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; padding: 10px 12px; font-family: var(--font); color: var(--green); background: rgba(0, 0, 0, .45); border: 2px solid var(--line); border-radius: 14px; cursor: pointer; transition: transform .12s; }
+.tcard:active { transform: scale(.97); }
+.tcard:disabled { opacity: .5; cursor: default; }
+.tcard .tc-nm { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #ffe27a; margin-top: 2px; }
+.tcard .tc-d { font-size: 12px; opacity: .85; margin-top: 2px; line-height: 1.3; }
+.tcard .tc-tx { flex: 1; min-width: 0; }
+.tcard.r-uncommon { border-color: rgba(255, 184, 0, .8); } .tcard.r-rare { border-color: var(--cyan); box-shadow: 0 0 12px rgba(95, 240, 255, .35); }
+.tcard.r-epic { border-color: #c77dff; box-shadow: 0 0 14px rgba(199, 125, 255, .5); }
+.tcard.r-legendary { border-color: #ffd54a; box-shadow: 0 0 20px rgba(255, 213, 74, .7); animation: legpulse 2s ease-in-out infinite; }
+.tc-full { text-align: center; font-size: 11px; letter-spacing: 2px; color: #ff8a98; margin-top: 2px; }
+.wheelico svg { animation: wspin 6s linear infinite; }
+@keyframes wspin { to { transform: rotate(360deg); } }
+
+/* ---- Gegner besiegt: Punkte fliegen auf das Bild, Lebensbalken leert sich, Stempel ---- */
+.ko-stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 4px; }
+.ko-av { width: 96px; height: 96px; border-radius: 16px; transition: filter .5s, transform .5s; }
+.ko-av svg { width: 100%; height: 100%; }
+.ko-x { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 30px var(--font); color: #ff5a6e; letter-spacing: 3px; text-shadow: 0 0 12px #f00; opacity: 0; transform: scale(2.4) rotate(-14deg); pointer-events: none; }
+.ko-av.hit { animation: kohit .32s linear; }
+@keyframes kohit { 0% { transform: translateX(0); filter: none; } 20% { transform: translateX(-7px) rotate(-3deg); filter: brightness(2.4) saturate(2); } 55% { transform: translateX(6px) rotate(2deg); } 100% { transform: none; filter: none; } }
+.ko-hp { width: 150px; height: 10px; border-radius: 6px; background: #1a0a0e; border: 1.5px solid #ff5a6e; overflow: hidden; box-shadow: 0 0 8px rgba(255, 90, 110, .4); }
+.ko-hpf { height: 100%; width: 100%; background: linear-gradient(90deg, #ff2a44, #ff8a5a); transition: width 1s cubic-bezier(.5, 0, .2, 1); }
+.ko-name { font-size: 12px; letter-spacing: 3px; color: var(--muted); }
+.ko-stamp { position: absolute; left: 50%; top: 38px; transform: translate(-50%, -50%) rotate(-12deg) scale(2); font: 700 22px var(--font); letter-spacing: 3px; color: #ff5a6e; border: 3px solid #ff5a6e; padding: 2px 12px; border-radius: 6px; background: rgba(0, 0, 0, .55); text-shadow: 0 0 10px #f00; opacity: 0; white-space: nowrap; pointer-events: none; }
+.ko-stage.boss .ko-stamp { font-size: 24px; color: #ffd54a; border-color: #ffd54a; text-shadow: 0 0 14px #ffb800; }
+.ko-stage.dying .ko-hpf, .ko-stage.done .ko-hpf { width: 0; }
+.ko-stage.done .ko-hpf { transition: none; }
+.ko-stage.dying .ko-av, .ko-stage.done .ko-av { filter: grayscale(1) brightness(.6); transform: rotate(-6deg) scale(.94); }
+.ko-stage.dying .ko-x, .ko-stage.done .ko-x { opacity: 1; transform: none; transition: opacity .3s, transform .35s cubic-bezier(.2, 1.8, .4, 1); }
+.ko-stage.done .ko-stamp { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); animation: stampin .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.ko-stage.done:not(.boss) .ko-stamp { animation: none; }
+@keyframes stampin { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(2.6); } 100% { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } }
+.fly-dot.ko-dot { width: 14px; height: 14px; background: radial-gradient(circle, #fff6b0 0 30%, #ffb800 62%, rgba(255, 150, 0, 0) 72%); box-shadow: 0 0 10px #ffb800; }
+
+/* ---- Mult ab 5: Zahl wird heiß, ab 10 bebt der Bildschirm, ab 20 brennt alles ---- */
+.t-read { position: relative; }
+.t-read #t-mult { display: inline-block; transition: transform .12s, color .2s; }
+.t-read.heat1 #t-mult { color: #ff9a2a; transform: scale(1.22); text-shadow: 0 0 10px #ff7a00; animation: heatwob .5s ease-in-out infinite; }
+.t-read.heat2 #t-mult { color: #ffd54a; transform: scale(1.45); text-shadow: 0 0 14px #ff5a00, 0 0 28px #ff9a00; animation: heatwob .32s ease-in-out infinite; }
+.t-read.heat3 #t-mult { color: #fff; transform: scale(1.75); text-shadow: 0 0 16px #ff2a00, 0 0 34px #ffb800, 0 0 52px #ff5a00; animation: heatwob .2s ease-in-out infinite; }
+.t-read.heat1 #t-chips { transform: scale(1.06); } .t-read.heat2 #t-chips, .t-read.heat3 #t-chips { transform: scale(1.12); }
+@keyframes heatwob { 0%, 100% { translate: 0 0; rotate: 0deg; } 25% { translate: -1px -1px; rotate: -3deg; } 75% { translate: 1px 1px; rotate: 3deg; } }
+.screen-flash.gold { background: radial-gradient(circle, rgba(255, 213, 74, 0) 30%, rgba(255, 150, 20, .55)); }
+#phone.heatbg::after { content: ""; position: absolute; inset: 0; z-index: 40; pointer-events: none; background: radial-gradient(ellipse at 50% 85%, rgba(255, 110, 0, .26), transparent 62%); animation: heatglow .6s ease-in-out infinite; }
+@keyframes heatglow { 50% { opacity: .55; } }
+.mult-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.mult-burst .ring { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #ffd54a; box-shadow: 0 0 14px #ff9a00; animation: burstring .7s ease-out both; }
+.mult-burst.t1 .ring { border-color: #ff9a2a; } .mult-burst.t3 .ring { border-width: 5px; border-color: #fff; animation-duration: .95s; }
+.mult-burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #ffe27a; box-shadow: 0 0 8px #ff9a00; animation: burstspark .8s ease-out both; }
+@keyframes burstring { to { transform: scale(7); opacity: 0; } }
+@keyframes burstspark { to { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(.2); opacity: 0; } }
+
+/* ---- Erfolge: klein unten rechts, kurz aufblitzend ---- */
+.ach-toast { position: absolute; right: 8px; bottom: 12px; z-index: 90; display: flex; align-items: center; gap: 7px; padding: 5px 10px 5px 6px; border-radius: 12px; pointer-events: none;
+  background: rgba(8, 5, 0, .92); border: 2px solid #ffd54a; color: #ffe27a; box-shadow: 0 0 16px rgba(255, 190, 0, .55);
+  animation: achin .35s cubic-bezier(.2, 1.4, .4, 1) both, achglow .5s ease-in-out .35s 4, achout .4s ease-in 2.8s both; }
+.ach-toast .at-ico { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #ffd54a; display: flex; align-items: center; justify-content: center; background: rgba(255, 213, 74, .12); }
+.ach-toast .at-tx { display: flex; flex-direction: column; line-height: 1.15; }
+.ach-toast .at-tx span { font-size: 8px; letter-spacing: 2px; color: #b89a40; }
+.ach-toast .at-tx b { font-size: 12px; letter-spacing: 1px; }
+@keyframes achin { from { transform: translateX(130%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes achglow { 50% { box-shadow: 0 0 26px rgba(255, 220, 90, .95); filter: brightness(1.3); } }
+@keyframes achout { to { transform: translateY(14px); opacity: 0; } }

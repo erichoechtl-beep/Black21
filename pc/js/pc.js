@@ -32,5 +32,5 @@ document.addEventListener('keydown', e => {
     if (k === 'r' && E.round.discardsLeft > 0 && E.canBurn) ACTIONS.burn();
     else if (k === 'escape' && App.burnMode) ACTIONS.burn();
   } else if (E.phase === 'blindSelect' && go) { e.preventDefault(); ACTIONS['play-blind'](); }
-  else if (E.phase === 'roundCleared' && go) { e.preventDefault(); if (E.cashOut && !E.cashOut.spin) ACTIONS.spin(); else ACTIONS['cash-out'](); }
+  else if (E.phase === 'roundCleared' && go) { e.preventDefault(); ACTIONS['cash-out'](); }
 });
