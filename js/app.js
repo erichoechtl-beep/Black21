@@ -94,10 +94,16 @@ const ACTIONS = {
   'split': () => App.engine.split(),
   'burn': () => { App.burnMode = !App.burnMode; App.pendingTrick = null; renderApp(); },
   'continue-hand': () => App.engine.acknowledgeResult(),
+  // Ein Tipp genügt: Der Knoten wird kurz eingekreist und funkelt, dann geht es los
   'node': t => {
-    const f = Number(t.dataset.f), i = Number(t.dataset.i);
-    if (App.mapSel && App.mapSel.f === f && App.mapSel.i === i) { App.mapSel = null; App.engine.chooseNode(f, i); }   // zweites Antippen = losgehen
-    else { App.mapSel = { f, i }; App.sel = null; haptic('tap'); renderApp(); }
+    if (App.nodeBusy) return;
+    const f = Number(t.dataset.f), i = Number(t.dataset.i), E = App.engine;
+    if (!E.isReachable(f, i)) { haptic('error'); return; }
+    App.nodeBusy = true; App.sel = null;
+    t.classList.add('picked');
+    const map = t.closest('.map'); if (map) map.classList.add('choosing');
+    haptic('wheelWin'); burstRing(t, 2);
+    setTimeout(() => { App.nodeBusy = false; if (App.engine === E && E.phase === 'map') E.chooseNode(f, i); }, 780);
   },
   'node-go': () => { const s = App.mapSel; App.mapSel = null; if (s) App.engine.chooseNode(s.f, s.i); },
   'event-opt': t => App.engine.eventChoose(Number(t.dataset.i)),
@@ -342,6 +348,15 @@ function renderCollection() {
   appEl().innerHTML = h;
 }
 
+// Neue Charms: bei wenigen als Zeilen, bei vielen als eine Zeile mit kleinen Symbolen (sonst wird der Bildschirm überladen)
+function unlocksHtml(list) {
+  if (!list || !list.length) return '';
+  if (list.length <= 2) return '<div style="margin-top:10px">' + list.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>';
+  const ids = CHARM_IDS.filter(id => list.includes('NEW CHARM: ' + CHARMS[id].name));
+  return '<div class="unlock-box"><div class="unlock-msg">&gt; ' + list.length + ' NEW CHARMS UNLOCKED</div><div class="unlock-ico">' +
+    ids.slice(0, 6).map(id => '<span class="mreel ' + CHARMS[id].rarity + '">' + icon(id, 20) + '</span>').join('') + (ids.length > 6 ? '<b>+' + (ids.length - 6) + '</b>' : '') + '</div></div>';
+}
+
 // ----- Zusammenfassung -----
 function renderSummary() {
   const s = App.summary;
@@ -373,7 +388,7 @@ function renderSummary() {
     '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
     row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
     row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST HAND', s.stats.bestHand) + '</div>' +
-    '<div style="margin-top:10px">' + s.newUnlocks.map(m => '<div class="unlock-msg">&gt; ' + esc(m.toUpperCase()) + '</div>').join('') + '</div>' +
+    unlocksHtml(s.newUnlocks) +
     '<div class="spacer"></div><button class="tbtn big green" data-act="again">' + (good ? 'PLAY AGAIN' : 'TRY AGAIN') + '</button>' +
     '<button class="tbtn dimmed" style="margin-top:8px" data-act="menu">MAIN MENU</button></div>';
   // Ton, Schütteln, Zahlen zählen
@@ -977,6 +992,7 @@ function nodeBlind(run, f, i) {
   if (n.t !== 'fight' && n.t !== 'elite' && n.t !== 'boss') return null;
   return currentBlind({ ante: run.ante, blindKind: n.t === 'boss' ? 2 : n.t === 'elite' ? 1 : 0, bossForAnte: run.bossForAnte, pending: { f, i, mod: n.mod || null } });
 }
+function nodeGoal(run, f, i) { const b = nodeBlind(run, f, i); return b ? b.target : 0; }
 function mapHtml(E) {
   const run = E.run, m = run.map, reach = E.reachable;
   const isReach = (f, i) => reach.some(r => r.f === f && r.i === i);
@@ -1000,7 +1016,7 @@ function mapHtml(E) {
     nodes += '<button class="' + cls + '" style="left:' + a.x + '%;top:' + a.y + '%" data-act="node" data-f="' + f + '" data-i="' + i + '"' + (reachable ? '' : ' disabled') + ' aria-label="' + NODE_INFO[n.t].name + '">' +
       icon(NODE_ICON[n.t], n.t === 'boss' ? 38 : 30) + (n.done ? '<i class="mchk">&#10003;</i>' : '') +
       (n.mod && !n.done ? '<i class="mmod ' + n.mod + '">' + MOD_INFO[n.mod].name + '</i>' : '') +
-      (reachable ? '<span class="mlab">' + NODE_INFO[n.t].name + '</span>' : '') + (isCur ? '<span class="mlab you">YOU</span>' : '') + '</button>';
+      (reachable ? '<span class="mlab">' + NODE_INFO[n.t].name + (nodeGoal(run, f, i) ? '<small>GOAL ' + nodeGoal(run, f, i) + '</small>' : '') + '</span>' : '') + (isCur ? '<span class="mlab you">YOU</span>' : '') + '</button>';
   }));
   // Freie Wahl: auch zu Knoten, die nicht direkt verbunden sind, führt ein leuchtender Weg
   if (m.cur) {

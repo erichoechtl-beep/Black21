@@ -1281,3 +1281,18 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 @keyframes achin { from { transform: translateX(130%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes achglow { 50% { box-shadow: 0 0 26px rgba(255, 220, 90, .95); filter: brightness(1.3); } }
 @keyframes achout { to { transform: translateY(14px); opacity: 0; } }
+
+/* ---- Runde 15: Knoten-Auswahl mit Einkreisen, Ziel unter dem Knoten, kompakte Freischaltungen ---- */
+.mlab small { display: block; font-size: 8.5px; letter-spacing: .5px; font-weight: 400; opacity: .9; margin-top: 1px; }
+.mnode.picked { animation: none !important; z-index: 6; transform: scale(1.28); transition: transform .25s cubic-bezier(.2, 1.6, .4, 1);
+  background: color-mix(in srgb, var(--nc) 40%, #07130d); box-shadow: 0 0 0 4px rgba(255, 255, 255, .5), 0 0 30px var(--nc), 0 0 60px var(--nc); }
+.mnode.picked::after { content: ""; position: absolute; inset: -11px; border-radius: 50%; border: 3px dashed #fff; opacity: 0; animation: pickring .8s ease-out both, pickspin 1.2s linear infinite; pointer-events: none; }
+@keyframes pickring { 0% { opacity: 0; inset: -34px; } 35% { opacity: 1; } 100% { opacity: .9; inset: -11px; } }
+@keyframes pickspin { to { rotate: 360deg; } }
+.map.choosing .mnode:not(.picked) { opacity: .2; transition: opacity .3s; pointer-events: none; }
+.map.choosing .map-lines { opacity: .35; transition: opacity .3s; }
+.map.choosing .mlab { opacity: 0; }
+.map.choosing .mnode.picked .mlab { opacity: 1; }
+.unlock-box { margin-top: 8px; text-align: center; }
+.unlock-ico { display: flex; gap: 4px; justify-content: center; align-items: center; margin-top: 4px; font-size: 11px; color: var(--cyan); }
+.unlock-ico .mreel { opacity: 1; }

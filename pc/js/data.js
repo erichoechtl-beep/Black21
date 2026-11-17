@@ -219,7 +219,8 @@ const BLIND_KINDS = [
 function currentBlind(run) {
   const idx = Math.min(Math.max(run.ante, 1), Tuning.anteBaseTargets.length) - 1;
   const p = run.pending, mod = p && p.mod && MOD_INFO[p.mod] ? p.mod : null;
-  const target = Math.round(Tuning.anteBaseTargets[idx] * BLIND_KINDS[run.blindKind].mult * (mod ? MOD_INFO[mod].target : 1));
+  const firstBoss = run.blindKind === 2 && run.ante === 1 ? 1.4 : 1;   // der erste Boss ist ein echter Prüfstein
+  const target = Math.round(Tuning.anteBaseTargets[idx] * BLIND_KINDS[run.blindKind].mult * firstBoss * (mod ? MOD_INFO[mod].target : 1));
   return { kind: run.blindKind, ante: run.ante, target, boss: run.blindKind === 2 ? run.bossForAnte : null, elite: run.blindKind === 1, mod, salt: p ? p.f * 3 + p.i : 0 };
 }
 
