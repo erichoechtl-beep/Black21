@@ -1296,3 +1296,31 @@ body[data-face="neon"] .card .face { animation: neonflick 5s steps(1) infinite; 
 .unlock-box { margin-top: 8px; text-align: center; }
 .unlock-ico { display: flex; gap: 4px; justify-content: center; align-items: center; margin-top: 4px; font-size: 11px; color: var(--cyan); }
 .unlock-ico .mreel { opacity: 1; }
+
+/* ---- Runde 16: Tisch-Design, Reise-Leiste, Charm-Upgrades, Meta-Punkte auch nach Niederlage ---- */
+.map-title .mt-l { display: flex; flex-direction: column; line-height: 1.1; }
+.map-title .mt-l i { font-style: normal; font-size: 10px; letter-spacing: 2px; color: var(--cyan); }
+.journey { display: flex; gap: 3px; align-items: center; }
+.jp { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid rgba(255, 184, 0, .4); color: rgba(255, 184, 0, .5); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.jp.done { background: #4dff2e; border-color: #4dff2e; color: #031a05; }
+.jp.cur { border-color: #ffd54a; color: #ffd54a; box-shadow: 0 0 8px #ffb800; animation: nodepulse 1.4s ease-in-out infinite; }
+.jp.last { border-color: #ffd54a; color: #ffd54a; } .jp.last svg { width: 12px; height: 12px; }
+.rule-line { padding: 0 8px; margin-top: -2px; font-size: 10.5px; letter-spacing: .5px; color: var(--muted); }
+.d-btns { display: flex; gap: 6px; align-items: center; flex: none; }
+.lvs { color: #ffd54a; font-size: 11px; letter-spacing: 1px; }
+.reel .lv { position: absolute; left: 0; right: 0; bottom: 1px; text-align: center; font-style: normal; font-size: 9px; color: #b87400; text-shadow: 0 0 3px #fff; line-height: 1; }
+.mreel { position: relative; }
+.mreel .lv { position: absolute; right: -2px; bottom: -3px; font-style: normal; font-size: 9px; font-weight: 700; color: #1a1000; background: #ffd54a; border-radius: 7px; padding: 0 3px; line-height: 12px; }
+.pb-s { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); margin-top: 3px; }
+.pot-big.lost .pb-n.kept { color: var(--amber); text-shadow: 0 0 14px rgba(255, 184, 0, .5); text-decoration: none; animation: none; }
+.next-goal { margin: 8px 0 0; text-align: center; font-size: 11px; letter-spacing: 1.5px; color: var(--cyan); }
+.next-goal b { color: #fff; }
+/* Jeder Tisch hat einen eigenen Farbton (nur beim Standard-Hintergrund) */
+body[data-bgdef="1"][data-table="2"] #bgfx { filter: hue-rotate(55deg); }
+body[data-bgdef="1"][data-table="3"] #bgfx { filter: hue-rotate(-100deg) saturate(1.2); }
+body[data-bgdef="1"][data-table="4"] #bgfx { filter: hue-rotate(135deg); }
+body[data-bgdef="1"][data-table="5"] #bgfx { filter: hue-rotate(-140deg) saturate(1.3); }
+body[data-bgdef="1"][data-table="6"] #bgfx { filter: hue-rotate(195deg) saturate(1.2); }
+body[data-bgdef="1"][data-table="7"] #bgfx { filter: grayscale(.85) brightness(.9); }
+body[data-bgdef="1"][data-table="8"] #bgfx { filter: hue-rotate(-95deg) saturate(1.5) brightness(1.1); }
+#bgfx { transition: filter .8s; }

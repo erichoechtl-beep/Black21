@@ -86,7 +86,7 @@ class GameEngine {
   placeholderRound() {
     const blind = currentBlind(this.run);
     return {
-      blind, rules: rulesFor(blind.boss), drawPile: [], discardPile: [], playerHands: [], activeIndex: 0,
+      blind, rules: rulesFor(blind.boss || blind.twist, blind.ante), drawPile: [], discardPile: [], playerHands: [], activeIndex: 0,
       dealerCards: [], dealerHoleRevealed: false, score: 0, handsLeft: 0, discardsLeft: 0,
       resolved: [], lastHandScore: 0, payoutBoost: 1, luckMult: 0, hotChips: 0, slotHit: false, streakEvent: '', streakBefore: 0, nearMiss: null, roulette: null, log: []
     };
@@ -128,7 +128,7 @@ class GameEngine {
   beginRound() {
     if (!this.fire({ type: 'beginRound' })) return;
     const blind = currentBlind(this.run);
-    const rules = rulesFor(blind.boss);
+    const rules = rulesFor(blind.boss || blind.twist, blind.ante);
     const pile = this.run.deck.map(c => Object.assign({}, c));
     this.rng.shuffle(pile);
     this.round = {
@@ -264,7 +264,7 @@ class GameEngine {
       const outcome = resolveOutcome(v, natural, dv, dealerNatural);
       const breakdown = scoreHand({
         hand, value: v, outcome, isNatural: natural, charms: this.run.charms,
-        bankroll: this.run.bankroll, tables: this.run.stats.tablesCleared, firstHand: r.log.length === 0, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, roulette: r.roulette, streak: streakBefore
+        bankroll: this.run.bankroll, table: tableRule(this.run.ante).id, tables: this.run.stats.tablesCleared, firstHand: r.log.length === 0, payoutBoost: r.payoutBoost, luckMult: r.luckMult, hotChips: r.hotChips, slotHit, roulette: r.roulette, streak: streakBefore
       });
       // Knapp daneben: genau 1 Punkt zu wenig, oder Bust mit 22
       if (!nearMiss) {
@@ -336,10 +336,10 @@ class GameEngine {
   // ----- Auszahlung & Fortschritt -----
   prepareCashOut() {
     const mod = this.round.blind.mod;
-    const reward = BLIND_KINDS[this.round.blind.kind].reward + (mod ? MOD_INFO[mod].reward : 0);   // Elite und heisse Tische zahlen mehr
+    const reward = BLIND_KINDS[this.round.blind.kind].reward + (mod ? MOD_INFO[mod].reward : 0) + (this.round.blind.bounty ? 8 : 0);   // Elite und heisse Tische zahlen mehr
     const handsBonus = Math.max(0, this.round.handsLeft);
     const interest = Math.min(Math.floor(this.run.bankroll / Tuning.interestStep), Tuning.interestCap);
-    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, mod };
+    this.cashOut = { blindReward: reward, handsBonus, interest, total: reward + handsBonus + interest, mod, bounty: !!this.round.blind.bounty };
     this.fb('win');
   }
 
@@ -353,6 +353,7 @@ class GameEngine {
     if (blind.kind === 2) run.stats.tablesCleared += 1;
     this.ach('firstWin');
     if (blind.kind === 2) this.ach('bossDown');
+    if (blind.kind === 2 && run.stats.tablesCleared >= 4) this.ach('table4');
     if (runComplete) this.ach('champion');
     if (!runComplete) { this.completeNode(); if (blind.kind === 2) this.nextTable(); }
     if (!this.fire({ type: 'cashedOut', runComplete })) return;
@@ -386,6 +387,7 @@ class GameEngine {
     if (this.phase !== 'map' || !this.isReachable(f, i)) { this.fb('error'); return; }
     const run = this.run, node = run.map.floors[f][i];
     run.pending = { f, i, mod: node.mod || null };
+    if (run.bounty && (node.t === 'fight' || node.t === 'elite' || node.t === 'boss')) { run.pending.bounty = true; run.bounty = false; }
     let next;
     if (node.t === 'shop') { this.generateShop(); next = 'shop'; }
     else if (node.t === 'treasure') { run.event = this.rollTreasure(); next = 'event'; }
@@ -421,9 +423,11 @@ class GameEngine {
 
   // ===== Ereignisse =====
   rollEvent() {
-    const total = EVENT_IDS.reduce((a, id) => a + EVENTS[id].weight, 0);
-    let roll = this.rng.int(total), pick = EVENT_IDS[0];
-    for (const id of EVENT_IDS) { if (roll < EVENTS[id].weight) { pick = id; break; } roll -= EVENTS[id].weight; }
+    const run = this.run;
+    const ids = EVENT_IDS.filter(id => { const dfn = EVENTS[id]; return (!dfn.minAnte || run.ante >= dfn.minAnte) && (!dfn.needsCharm || run.charms.some(c => this.upgradeCost(c) > 0)) && (!dfn.needsSlot || run.charms.length < Tuning.charmSlots); });
+    const total = ids.reduce((a, id) => a + EVENTS[id].weight, 0);
+    let roll = this.rng.int(total), pick = ids[0];
+    for (const id of ids) { if (roll < EVENTS[id].weight) { pick = id; break; } roll -= EVENTS[id].weight; }
     return { id: pick, stage: 'choose', spins: 0, last: null, result: null };
   }
   rollTreasure() {
@@ -493,6 +497,7 @@ class GameEngine {
     if (!opt) return;
     if (opt.leave) { this.eventDone(); return; }
     if (opt.cost && run.bankroll < opt.cost) { this.fb('error'); return; }
+    if (opt.needsSlot && run.charms.length >= Tuning.charmSlots) { this.fb('error'); return; }
     if (opt.cost) run.bankroll -= opt.cost;
     let roll = this.rng.next(), out = opt.outcomes[opt.outcomes.length - 1];
     for (const o of opt.outcomes) { if (roll < o.p) { out = o; break; } roll -= o.p; }
@@ -507,6 +512,19 @@ class GameEngine {
       if (run.charms.length < Tuning.charmSlots && pool.length) { const kind = pool[0]; run.charms.push({ uid: newId(), kind }); text = CHARMS[kind].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind }); this.checkGear(); }
       else { run.bankroll += 3; text = 'Nothing to give. +$3'; }
     }
+    if (out.rareCharm) {
+      const owned = new Set(run.charms.map(c => c.kind));
+      let pool = run.charmPool.filter(id => !owned.has(id) && RARITY_ORDER.indexOf(CHARMS[id].rarity) >= 2);
+      if (!pool.length) pool = run.charmPool.filter(id => !owned.has(id));
+      if (pool.length) { const kind = this.rng.pick(pool); run.charms.push({ uid: newId(), kind }); text = CHARMS[kind].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ charm: kind }); this.checkGear(); }
+      else { run.bankroll += opt.cost || 0; text = 'Sold out. Refunded.'; }
+    }
+    if (out.levelUp) {
+      const c = this.rng.pick(run.charms.filter(x => this.upgradeCost(x) > 0));
+      if (c) { c.level = (c.level || 0) + 1; text = CHARMS[c.kind].name + ' is now LV' + c.level + '!'; }
+      else { run.bankroll += opt.cost || 0; text = 'Everything is maxed. Refunded.'; }
+    }
+    if (out.bounty) run.bounty = true;
     if (out.upgrade) {
       const plain = run.deck.filter(c => c.edition === 'standard');
       if (plain.length) { const c = this.rng.pick(plain); c.edition = ['foil', 'holographic', 'gilded'][this.rng.int(3)]; text = shortName(c) + ' is now ' + EDITION_INFO[c.edition].name + '!'; if (this.hooks.onDiscovery) this.hooks.onDiscovery({ edition: c.edition }); }
@@ -597,7 +615,7 @@ class GameEngine {
     const failed = !won && !banked && !abandoned && r && r.blind;
     this.summary = {
       won, banked: !!banked, abandoned: !!abandoned, deckType: this.run.deckType, anteReached: Math.min(this.run.ante, Tuning.finalAnte),
-      stats: Object.assign({}, s), pointsEarned: paid ? potReached : 0, potReached, newUnlocks: [], newRecord: false,
+      stats: Object.assign({}, s), pointsEarned: paid ? potReached : Math.round(potReached * Tuning.lossPotShare), potReached, newUnlocks: [], newRecord: false,
       fail: failed ? { target: r.blind.target, score: r.score, short: Math.max(0, r.blind.target - r.score), pct: Math.min(99, Math.floor(r.score / r.blind.target * 100)), kind: r.blind.kind, name: opponentFor(r.blind).name } : null
     };
     if (this.hooks.onRunEnded) this.hooks.onRunEnded(this.summary);
@@ -645,7 +663,7 @@ class GameEngine {
     const offers = [];
     const owned = new Set(run.charms.map(c => c.kind));
     // VIP-Karte: alles im Shop kostet $1 weniger (mindestens $1)
-    const vip = owned.has('vipCard') ? 1 : 0;
+    const vip = (owned.has('vipCard') ? 1 : 0) + (tableRule(run.ante).id === 'happy' ? 1 : 0);
     const cost = p => Math.max(1, p - vip);
     // Einfacher Shop: zwei Charms (bleiben) und ein Item (einmalig benutzbar)
     for (const kind of this.pickCharms(2, 1)) offers.push({ id: newId(), item: { type: 'charm', kind }, price: cost(CHARMS[kind].price), isSold: false });
@@ -704,7 +722,20 @@ class GameEngine {
     this.emit();
   }
 
-  sellValue(charm) { const c = CHARMS[charm.kind]; return Math.max(1, Math.floor(c.price * 0.6)); }
+  sellValue(charm) { const c = CHARMS[charm.kind]; return Math.max(1, Math.floor(c.price * 0.6)) + (charm.level || 0) * 2; }
+  upgradeCost(charm) { const lv = charm.level || 0; return lv >= Tuning.charmMaxLevel || CHARMS[charm.kind].noUpgrade ? 0 : Tuning.upgradeCost[lv]; }
+  // Gold-Senke: ein Charm im Shop verbessern (jede Stufe verstärkt seine Boni weiter)
+  upgradeCharm(uid) {
+    const c = this.run.charms.find(x => x.uid === uid);
+    if (this.phase !== 'shop' || !c) return;
+    const cost = this.upgradeCost(c);
+    if (!cost || this.run.bankroll < cost) { this.fb('error'); return; }
+    this.run.bankroll -= cost;
+    c.level = (c.level || 0) + 1;
+    this.fb('purchase');
+    this.checkpoint();
+    this.emit();
+  }
   sell(charmUid) {
     if (!['shop', 'map', 'blindSelect', 'event', 'roundCleared', 'playerTurn'].includes(this.phase)) return;
     const i = this.run.charms.findIndex(c => c.uid === charmUid);

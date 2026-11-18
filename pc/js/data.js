@@ -13,7 +13,9 @@ const Tuning = {
   doubleDownCost: 3, finalAnte: 8,
   anteBaseTargets: [100, 300, 650, 1300, 2400, 4000, 6500, 10000],
   baseHands: 5, baseDiscards: 3, charmSlots: 5, consumableSlots: 2,
-  startingBankroll: 4, rerollBase: 2, interestStep: 5, interestCap: 5
+  startingBankroll: 6, rerollBase: 2, interestStep: 5, interestCap: 5,
+  lossPotShare: 0.3,                              // auch ein verlorener Run zahlt einen kleinen Teil des Topfes aus
+  upgradeCost: [6, 10, 14], charmMaxLevel: 3     // Charm-Upgrades: Preis der Stufen 1 bis 3
 };
 
 // ---------- Zufall (seedbar, Zustand ist speicherbar) ----------
@@ -136,33 +138,33 @@ const CHARMS = {
   freeDrink: { name: 'Free Drink', text: 'Lose a hand: +$1.', price: 4, rarity: 'common', unlockAnte: 0 },
   tipJar: { name: 'Tip Jar', text: 'Push: +$2.', price: 3, rarity: 'common', unlockAnte: 0 },
   coffeeCup: { name: 'Coffee Cup', text: 'First hand of a fight: +40 Chips.', price: 3, rarity: 'common', unlockAnte: 0 },
-  chalk: { name: 'Chalk', text: 'Win with 12 to 16: +3 Mult.', price: 4, rarity: 'common', unlockAnte: 0 },
+  chalk: { name: 'Chalk', text: 'Win with 12 to 16: +2 Mult.', price: 4, rarity: 'common', unlockAnte: 0 },
   penny: { name: 'Lucky Penny', text: '+1 Mult per $8 you hold (max +4).', price: 5, rarity: 'common', unlockAnte: 0 },
   // ---- Uncommon ----
-  greasyFingers: { name: 'Greasy Fingers', text: 'Two 7s: +4 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 0 },
+  greasyFingers: { name: 'Greasy Fingers', text: 'Two 7s: +3 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 0 },
   loanShark: { name: 'Loan Shark', text: '+10 Chips per $10 you hold.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
   goldenTooth: { name: 'Golden Tooth', text: 'Win a hand: +$2.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
-  rouletteTable: { name: 'Roulette Table', text: 'A new lucky card each round: +8 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
-  jackpotBell: { name: 'Jackpot Bell', text: 'Exactly 21: +4 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
-  slotMachine: { name: 'Slot Machine', text: '1 in 4: 7-7-7 for +8 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
-  gamblersRing: { name: "Gambler's Ring", text: 'Double Down: +5 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
-  luckyCoin: { name: 'Lucky Coin', text: 'An even number of cards: +3 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 1 },
+  rouletteTable: { name: 'Roulette Table', text: 'A new lucky card each round: +6 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
+  jackpotBell: { name: 'Jackpot Bell', text: 'Exactly 21: +3 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 0 },
+  slotMachine: { name: 'Slot Machine', text: '1 in 4: 7-7-7 for +6 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
+  gamblersRing: { name: "Gambler's Ring", text: 'Double Down: +4 Mult.', price: 6, rarity: 'uncommon', unlockAnte: 1 },
+  luckyCoin: { name: 'Lucky Coin', text: 'An even number of cards: +2 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 1 },
   redEnvelope: { name: 'Red Envelope', text: 'Each red card: +1 Mult.', price: 5, rarity: 'uncommon', unlockAnte: 1 },
   blackCat: { name: 'Black Cat', text: 'Each black card: +20 Chips.', price: 5, rarity: 'uncommon', unlockAnte: 1 },
   // ---- Rare ----
   brokenMirror: { name: 'Broken Mirror', text: 'Split hands: +50 Chips, double Mult.', price: 8, rarity: 'rare', unlockAnte: 1 },
-  vipCard: { name: 'VIP Card', text: 'Shop prices -$1.', price: 7, rarity: 'rare', unlockAnte: 1 },
-  luckyHorseshoe: { name: 'Lucky Horseshoe', text: 'Every win: +3 Mult.', price: 8, rarity: 'rare', unlockAnte: 1 },
-  cardShark: { name: 'Card Shark', text: 'Exactly 3 cards: x1.5 Mult.', price: 8, rarity: 'rare', unlockAnte: 2 },
-  highRollerChip: { name: 'High Roller Chip', text: 'A total of 20 or 21: x1.5 Mult.', price: 9, rarity: 'rare', unlockAnte: 2 },
+  vipCard: { name: 'VIP Card', text: 'Shop prices -$1.', price: 7, rarity: 'rare', unlockAnte: 1, noUpgrade: true },
+  luckyHorseshoe: { name: 'Lucky Horseshoe', text: 'Every win: +2 Mult.', price: 8, rarity: 'rare', unlockAnte: 1 },
+  cardShark: { name: 'Card Shark', text: 'Exactly 3 cards: x1.3 Mult.', price: 8, rarity: 'rare', unlockAnte: 2 },
+  highRollerChip: { name: 'High Roller Chip', text: 'A total of 20 or 21: x1.3 Mult.', price: 9, rarity: 'rare', unlockAnte: 2 },
   // ---- Epic ----
-  snowball: { name: 'Snowball', text: '+1 Mult for every hand you win. It stays all run.', price: 8, rarity: 'rare', unlockAnte: 2 },
-  casinoCrown: { name: 'Casino Crown', text: 'Each face card: x1.25 Mult.', price: 11, rarity: 'epic', unlockAnte: 3 },
-  veteran: { name: 'Veteran', text: 'x0.25 Mult for every Table you cleared.', price: 11, rarity: 'epic', unlockAnte: 3 },
-  loadedDeck: { name: 'Loaded Deck', text: 'An Ace in your hand: +10 Mult.', price: 10, rarity: 'epic', unlockAnte: 3 },
-  nightShift: { name: 'Night Shift', text: '+1 hand in every fight.', price: 12, rarity: 'epic', unlockAnte: 3 },
+  snowball: { name: 'Snowball', text: '+1 Mult for every 2 hands you win. It stays all run.', price: 8, rarity: 'rare', unlockAnte: 2 },
+  casinoCrown: { name: 'Casino Crown', text: 'Each face card: x1.15 Mult.', price: 11, rarity: 'epic', unlockAnte: 3 },
+  veteran: { name: 'Veteran', text: 'x0.15 Mult for every Table you cleared.', price: 11, rarity: 'epic', unlockAnte: 3 },
+  loadedDeck: { name: 'Loaded Deck', text: 'An Ace in your hand: +6 Mult.', price: 10, rarity: 'epic', unlockAnte: 3 },
+  nightShift: { name: 'Night Shift', text: '+1 hand in every fight.', price: 12, rarity: 'epic', unlockAnte: 3, noUpgrade: true },
   // ---- Legendary ----
-  joker: { name: 'The Joker', text: 'Every hand: x2 Mult.', price: 15, rarity: 'legendary', unlockAnte: 5 },
+  joker: { name: 'The Joker', text: 'Every hand: x1.5 Mult.', price: 15, rarity: 'legendary', unlockAnte: 5 },
   midas: { name: 'Midas Touch', text: 'Win a hand: +$4.', price: 14, rarity: 'legendary', unlockAnte: 5 }
 };
 // Seltenheit: Reihenfolge, Name, Gewicht im Shop (wird mit dem Tisch seltener/häufiger)
@@ -197,7 +199,22 @@ const BOSSES = {
 };
 const BOSS_IDS = Object.keys(BOSSES);
 
-function rulesFor(boss) {
+// Jeder der 8 Tische hat einen Namen und eine eigene Regel (steht auf der Karte und vor dem Kampf)
+const TABLE_RULES = [
+  { id: 'warm', name: 'THE BACK ROOM', text: 'No special rules. Warm up.' },
+  { id: 'sevens', name: 'LUCKY SEVENS', text: 'Every 7 in your hand: +3 Mult.' },
+  { id: 'happy', name: 'HAPPY HOUR', text: 'Shop prices -$1. More events.' },
+  { id: 'faceoff', name: 'FACE OFF', text: 'Every face card: +25 Chips.' },
+  { id: 'stakes', name: 'HIGH STAKES', text: 'One hand fewer, but wins pay x1.4.' },
+  { id: 'redNight', name: 'RED NIGHT', text: 'Every red card: +2 Mult.' },
+  { id: 'blackTie', name: 'BLACK TIE', text: 'Every black card: +30 Chips.' },
+  { id: 'house', name: 'THE HOUSE', text: 'Dealer hits soft 17. Wins pay x1.25.' }
+];
+function tableRule(ante) { return TABLE_RULES[Math.min(Math.max(ante || 1, 1), TABLE_RULES.length) - 1]; }
+// Elite-Gegner bekommen eine kleine Boss-Regel als Wendung
+const ELITE_TWISTS = ['dealerHitsSoft18', 'bustTax', 'faceDownInitial'];
+
+function rulesFor(boss, ante) {
   const r = { acesCountOne: false, dealerStandThreshold: 17, dealerSoftHitThrough: 0, forbidsFaceCards: false, hidesFirstCard: false, handsPenalty: 0, bustPenalty: 0 };
   switch (boss) {
     case 'acesCountOne': r.acesCountOne = true; break;
@@ -207,21 +224,24 @@ function rulesFor(boss) {
     case 'shortHanded': r.handsPenalty = 1; break;
     case 'bustTax': r.bustPenalty = 3; break;
   }
+  const tr = ante ? tableRule(ante).id : '';
+  if (tr === 'stakes') r.handsPenalty += 1;
+  if (tr === 'house') r.dealerSoftHitThrough = Math.max(r.dealerSoftHitThrough, 17);
   return r;
 }
 
 // ---------- Blinds ----------
 const BLIND_KINDS = [
   { name: 'FIGHT', mult: 1.0, reward: 3 },
-  { name: 'ELITE', mult: 1.5, reward: 6 },
+  { name: 'ELITE', mult: 1.4, reward: 6 },
   { name: 'BOSS', mult: 1.7, reward: 5 }
 ];
 function currentBlind(run) {
   const idx = Math.min(Math.max(run.ante, 1), Tuning.anteBaseTargets.length) - 1;
   const p = run.pending, mod = p && p.mod && MOD_INFO[p.mod] ? p.mod : null;
-  const firstBoss = run.blindKind === 2 && run.ante === 1 ? 1.4 : 1;   // der erste Boss ist ein echter Prüfstein
+  const firstBoss = (run.blindKind === 2 && run.ante === 1 ? 1.4 : 1) * (p && p.bounty ? 1.3 : 1);   // der erste Boss ist ein echter Prüfstein
   const target = Math.round(Tuning.anteBaseTargets[idx] * BLIND_KINDS[run.blindKind].mult * firstBoss * (mod ? MOD_INFO[mod].target : 1));
-  return { kind: run.blindKind, ante: run.ante, target, boss: run.blindKind === 2 ? run.bossForAnte : null, elite: run.blindKind === 1, mod, salt: p ? p.f * 3 + p.i : 0 };
+  return { kind: run.blindKind, ante: run.ante, target, boss: run.blindKind === 2 ? run.bossForAnte : null, elite: run.blindKind === 1, twist: run.blindKind === 1 ? ELITE_TWISTS[(run.ante + (p ? p.f + p.i : 0)) % ELITE_TWISTS.length] : null, bounty: !!(p && p.bounty), mod, salt: p ? p.f * 3 + p.i : 0 };
 }
 
 // ---------- Karte im Slay-the-Spire-Stil ----------
@@ -249,7 +269,7 @@ function generateMapData(rng, ante) {
     const n = f === 0 ? 3 : (rng.chance(0.5) ? 4 : 3), row = [];
     for (let i = 0; i < n; i++) {
       let t = 'fight';
-      if (f > 0) { const r = rng.next(); t = r < 0.36 ? 'fight' : r < 0.56 ? 'event' : r < 0.74 ? 'shop' : 'elite'; }
+      if (f > 0) { const r = rng.next(), evB = tableRule(ante).id === 'happy' ? 0.12 : 0; t = r < 0.36 - evB ? 'fight' : r < 0.56 ? 'event' : r < 0.74 ? 'shop' : 'elite'; }
       const node = { t, nx: [], done: false };
       if (t === 'fight' && f > 0) { const q = rng.next(); if (q < 0.2) node.mod = 'hot'; else if (q < 0.4) node.mod = 'easy'; }
       row.push(node);
@@ -299,6 +319,15 @@ const EVENTS = {
   drinks: { name: 'FREE DRINKS', text: 'The house is generous tonight.', weight: 2, options: [
     { label: 'ONE DRINK', outcomes: [{ p: 1, text: '+$3. Cheers!', cash: 3, good: true }] },
     { label: 'ROUND OF SHOTS', outcomes: [{ p: 0.5, text: '+$7. Lucky night!', cash: 7, good: true }, { p: 0.5, text: 'Hangover. -$2', cash: -2, good: false }] }] },
+  blackmarket: { name: 'BLACK MARKET', text: 'A rare charm, no questions asked. $14.', weight: 2, minAnte: 3, needsSlot: true, options: [
+    { label: 'BUY A RARE CHARM $14', cost: 14, needsSlot: true, outcomes: [{ p: 1, text: 'A rare find.', rareCharm: true, good: true }] },
+    { label: 'WALK AWAY', leave: true }] },
+  tuner: { name: 'CHARM TUNE-UP', text: 'A mechanic polishes one of your charms for $7.', weight: 2, needsCharm: true, options: [
+    { label: 'TUNE UP $7', cost: 7, outcomes: [{ p: 1, text: 'Shiny.', levelUp: true, good: true }] },
+    { label: 'NO THANKS', leave: true }] },
+  bounty: { name: 'BOUNTY', text: 'Your next fight has a goal x1.3 higher, but pays +$8.', weight: 2, options: [
+    { label: 'ACCEPT THE BOUNTY', outcomes: [{ p: 1, text: 'Bounty set. Good luck.', bounty: true, good: true }] },
+    { label: 'DECLINE', leave: true }] },
   wheel: { name: 'LUCKY WHEEL', text: 'One free spin. A second one costs $3.', weight: 4, game: 'wheel' },
   treasure: { name: 'TREASURE', text: 'Pick one charm. It is yours.', weight: 0, game: 'treasure' },
   fortune: { name: 'FORTUNE TELLER', text: 'She reads your cards for $3.', weight: 1, options: [
@@ -392,7 +421,7 @@ function applyCharm(charm, ctx, b) {
   const cards = ctx.hand.cards;
   switch (charm.kind) {
     case 'greasyFingers':
-      if (cards.filter(c => c.rank === 7).length === 2) bdAdd(b, name, 'addMult', 4);
+      if (cards.filter(c => c.rank === 7).length === 2) bdAdd(b, name, 'addMult', 3);
       break;
     case 'loanShark': {
       const bonus = Math.floor(ctx.bankroll / 10) * 10;
@@ -422,16 +451,16 @@ function applyCharm(charm, ctx, b) {
       break;
     case 'insuranceSlip': break; // nur bei Bust relevant
     case 'rouletteTable':
-      if (ctx.roulette && cards.some(c => c.rank === ctx.roulette.rank && isRedSuit(c.suit) === ctx.roulette.red)) bdAdd(b, name + ' (' + (ctx.roulette.red ? 'red ' : 'black ') + rankLabel(ctx.roulette.rank) + ')', 'addMult', 8);
+      if (ctx.roulette && cards.some(c => c.rank === ctx.roulette.rank && isRedSuit(c.suit) === ctx.roulette.red)) bdAdd(b, name + ' (' + (ctx.roulette.red ? 'red ' : 'black ') + rankLabel(ctx.roulette.rank) + ')', 'addMult', 6);
       break;
     case 'luckyHorseshoe':
-      if (ctx.outcome === 'win') bdAdd(b, name, 'addMult', 3);
+      if (ctx.outcome === 'win') bdAdd(b, name, 'addMult', 2);
       break;
     case 'jackpotBell':
-      if (ctx.value.total === 21) bdAdd(b, name, 'addMult', 4);
+      if (ctx.value.total === 21) bdAdd(b, name, 'addMult', 3);
       break;
     case 'slotMachine':
-      if (ctx.slotHit) bdAdd(b, name + ' 7-7-7!', 'addMult', 8);
+      if (ctx.slotHit) bdAdd(b, name + ' 7-7-7!', 'addMult', 6);
       break;
     case 'freeDrink':
       if (ctx.outcome === 'lose') bdAdd(b, name, 'cash', 1);
@@ -445,7 +474,7 @@ function applyCharm(charm, ctx, b) {
       if (ctx.firstHand) bdAdd(b, name, 'chips', 40);
       break;
     case 'chalk':
-      if (ctx.outcome === 'win' && ctx.value.total >= 12 && ctx.value.total <= 16) bdAdd(b, name, 'addMult', 3);
+      if (ctx.outcome === 'win' && ctx.value.total >= 12 && ctx.value.total <= 16) bdAdd(b, name, 'addMult', 2);
       break;
     case 'penny': {
       const m = Math.min(4, Math.floor(ctx.bankroll / 8));
@@ -453,10 +482,10 @@ function applyCharm(charm, ctx, b) {
       break;
     }
     case 'gamblersRing':
-      if (ctx.hand.isDoubled) bdAdd(b, name, 'addMult', 5);
+      if (ctx.hand.isDoubled) bdAdd(b, name, 'addMult', 4);
       break;
     case 'luckyCoin':
-      if (cards.length % 2 === 0) bdAdd(b, name, 'addMult', 3);
+      if (cards.length % 2 === 0) bdAdd(b, name, 'addMult', 2);
       break;
     case 'redEnvelope': {
       const n = cards.filter(c => isRedSuit(c.suit)).length;
@@ -469,29 +498,44 @@ function applyCharm(charm, ctx, b) {
       break;
     }
     case 'cardShark':
-      if (cards.length === 3) bdAdd(b, name, 'xMult', 1.5);
+      if (cards.length === 3) bdAdd(b, name, 'xMult', 1.3);
       break;
     case 'highRollerChip':
-      if (ctx.value.total >= 20) bdAdd(b, name, 'xMult', 1.5);
+      if (ctx.value.total >= 20) bdAdd(b, name, 'xMult', 1.3);
       break;
     case 'casinoCrown':
-      for (const c of cards) if (isFace(c.rank)) bdAdd(b, name, 'xMult', 1.25);
+      for (const c of cards) if (isFace(c.rank)) bdAdd(b, name, 'xMult', 1.15);
       break;
     case 'loadedDeck':
-      if (cards.some(c => c.rank === 1)) bdAdd(b, name, 'addMult', 10);
+      if (cards.some(c => c.rank === 1)) bdAdd(b, name, 'addMult', 6);
       break;
     case 'snowball':
-      if (charm.stack > 0) bdAdd(b, name + ' (+' + charm.stack + ')', 'addMult', charm.stack);
+      if (charm.stack >= 2) bdAdd(b, name + ' (+' + Math.floor(charm.stack / 2) + ')', 'addMult', Math.floor(charm.stack / 2));
       break;
     case 'veteran':
-      if (ctx.tables > 0) bdAdd(b, name, 'xMult', 1 + 0.25 * ctx.tables);
+      if (ctx.tables > 0) bdAdd(b, name, 'xMult', 1 + 0.15 * ctx.tables);
       break;
     case 'joker':
-      bdAdd(b, name, 'xMult', 2);
+      bdAdd(b, name, 'xMult', 1.5);
       break;
     case 'midas':
       if (ctx.outcome === 'win') bdAdd(b, name, 'cash', 4);
       break;
+  }
+}
+
+// Die Regel des aktuellen Tisches (siehe TABLE_RULES)
+function applyTableRule(ctx, b) {
+  const t = ctx.table, cards = ctx.hand.cards;
+  if (!t) return;
+  const n = f => cards.filter(f).length;
+  switch (t) {
+    case 'sevens': if (n(c => c.rank === 7)) bdAdd(b, 'Lucky Sevens', 'addMult', 3 * n(c => c.rank === 7)); break;
+    case 'faceoff': if (n(c => isFace(c.rank))) bdAdd(b, 'Face Off', 'chips', 25 * n(c => isFace(c.rank))); break;
+    case 'redNight': if (n(c => isRedSuit(c.suit))) bdAdd(b, 'Red Night', 'addMult', 2 * n(c => isRedSuit(c.suit))); break;
+    case 'blackTie': if (n(c => !isRedSuit(c.suit))) bdAdd(b, 'Black Tie', 'chips', 30 * n(c => !isRedSuit(c.suit))); break;
+    case 'stakes': if (ctx.outcome === 'win') bdAdd(b, 'High Stakes', 'factor', 1.4); break;
+    case 'house': if (ctx.outcome === 'win') bdAdd(b, 'The House', 'factor', 1.25); break;
   }
 }
 
@@ -512,7 +556,21 @@ function scoreHand(ctx) {
     if (card.edition === 'foil') bdAdd(b, shortName(card) + ' Foil', 'chips', Tuning.foilChips);
     else if (card.edition === 'holographic') bdAdd(b, shortName(card) + ' Holo', 'xMult', Tuning.holoXMult);
   }
-  for (const charm of ctx.charms) applyCharm(charm, ctx, b);
+  applyTableRule(ctx, b);
+  for (const charm of ctx.charms) {
+    const n0 = b.events.length;
+    applyCharm(charm, ctx, b);
+    const lv = charm.level || 0;
+    if (lv > 0) {       // Upgrades: ein Teil des Bonus kommt pro Stufe noch einmal dazu
+      const nm = CHARMS[charm.kind].name + ' LV' + lv;
+      for (const ev of b.events.slice(n0)) {
+        if (ev.kind === 'chips') { const v = Math.round(ev.value * 0.35 * lv / 5) * 5; if (v > 0) bdAdd(b, nm, 'chips', v); }
+        else if (ev.kind === 'addMult') { const v = Math.round(ev.value * 0.35 * lv * 2) / 2; if (v > 0) bdAdd(b, nm, 'addMult', v); }
+        else if (ev.kind === 'xMult') bdAdd(b, nm, 'xMult', 1 + (ev.value - 1) * 0.3 * lv);
+        else if (ev.kind === 'cash' && ev.value > 0) bdAdd(b, nm, 'cash', Math.max(1, Math.round(ev.value * 0.35 * lv)));
+      }
+    }
+  }
   if (ctx.luckMult) bdAdd(b, 'Lucky 7', 'addMult', ctx.luckMult);
   if (ctx.hotChips) bdAdd(b, "Gambler's Chip", 'chips', ctx.hotChips);
   if (ctx.outcome !== 'win') bdAdd(b, OUTCOME_LABEL[ctx.outcome], 'factor', OUTCOME_FACTOR[ctx.outcome]);
@@ -614,6 +672,7 @@ const ACHIEVEMENTS = {
   legend: { name: 'Legend Hunter', text: 'Own a legendary charm.', icon: 'joker' },
   jackpot: { name: 'Jackpot!', text: 'Hit a jackpot (wheel) or green (roulette).', icon: 'wheel' },
   treasure: { name: 'Treasure Hunter', text: 'Open a treasure room.', icon: 'nodeTreasure' },
+  table4: { name: 'Regular', text: 'Clear 4 tables in one run.', icon: 'nodeBoss' },
   champion: { name: 'House Broken', text: 'Win a run.', icon: 'trophy' }
 };
 const ACH_IDS = Object.keys(ACHIEVEMENTS);

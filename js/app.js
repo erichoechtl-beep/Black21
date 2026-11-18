@@ -39,7 +39,7 @@ function goTo(screen) {
   App.screen = screen; App.bgPreview = null;
   App.tallyToken++; App.tallyKey = null;
   if (App.dealerTimer) { clearTimeout(App.dealerTimer); App.dealerTimer = null; }
-  if (screen !== 'run') App.engine = null;
+  if (screen !== 'run') { App.engine = null; delete document.body.dataset.table; }
   renderApp();
 }
 
@@ -119,6 +119,7 @@ const ACTIONS = {
   'buy': t => App.engine.buy(t.dataset.id),
   'reroll': () => App.engine.rerollShop(),
   'sell': t => { App.sel = null; App.engine.sell(t.dataset.uid); },
+  'upgrade': t => App.engine.upgradeCharm(t.dataset.uid),
   'use-shop': t => App.engine.use(t.dataset.uid),
   'leave-shop': () => { App.inspected = ''; App.engine.leaveShop(); },
   'sel': t => { App.sel = App.sel === t.dataset.uid ? null : t.dataset.uid; App.mapSel = null; renderApp(); },
@@ -307,6 +308,7 @@ function applySkins() {
 function bgSync() {
   const eq = (App.meta && App.meta.equip) || {};
   const ante = App.engine && App.engine.run ? App.engine.run.ante : 1;
+  document.body.dataset.bgdef = (App.bgPreview || eq.bg || 'felt') === 'felt' ? '1' : '';
   BG.set(BG.themeFor(App.bgPreview || eq.bg || 'felt', ante));
 }
 
@@ -357,6 +359,17 @@ function unlocksHtml(list) {
     ids.slice(0, 6).map(id => '<span class="mreel ' + CHARMS[id].rarity + '">' + icon(id, 20) + '</span>').join('') + (ids.length > 6 ? '<b>+' + (ids.length - 6) + '</b>' : '') + '</div></div>';
 }
 
+// Was ist das nächste Ziel in der Meta-Welt? (Motivation: man sieht immer, wie weit es noch ist)
+function nextGoalHtml(meta) {
+  const c = [];
+  for (const id of DECK_IDS) if (!meta.unlockedDecks.includes(id)) c.push({ n: DECKS[id].name, p: DECKS[id].price });
+  for (const cat of ['bg', 'back', 'face']) for (const sk of SKINS[cat]) if (!meta.owned[cat].includes(sk.id)) c.push({ n: sk.name, p: sk.price });
+  if (!c.length) return '';
+  c.sort((x, y) => x.p - y.p);
+  const g = c[0], left = g.p - meta.points;
+  return '<div class="next-goal">' + (left <= 0 ? 'YOU CAN BUY <b>' + esc(g.n.toUpperCase()) + '</b> IN THE SHOP' : '<b>' + left + '</b> PTS TO <b>' + esc(g.n.toUpperCase()) + '</b>') + '</div>';
+}
+
 // ----- Zusammenfassung -----
 function renderSummary() {
   const s = App.summary;
@@ -366,8 +379,8 @@ function renderSummary() {
   // Der Topf: bei Gewinn/Bank wird er ausgezahlt, bei Niederlage verfällt er vor den Augen des Spielers
   let pot;
   if (good) pot = '<div class="pot-big good"><div class="pb-l">POINTS WON</div><div class="pb-n" id="pot-n">+' + s.pointsEarned + '</div></div>';
-  else pot = '<div class="pot-big lost"><div class="pb-l">' + (s.potReached > 0 ? 'POT LOST' : 'POINTS') + '</div><div class="pb-n" id="pot-n" data-from="' + s.potReached + '">' + s.potReached + '</div>' +
-    '<div class="pb-z">YOU KEEP 0</div></div>';
+  else pot = '<div class="pot-big lost"><div class="pb-l">' + (s.potReached > 0 ? 'POT' : 'POINTS') + '</div><div class="pb-n" id="pot-n" data-from="' + s.potReached + '" data-to="' + s.pointsEarned + '">' + s.potReached + '</div>' +
+    '<div class="pb-z">YOU KEEP +' + s.pointsEarned + '</div>' + (s.potReached > 0 ? '<div class="pb-s">BANK OR WIN TO KEEP THE WHOLE POT</div>' : '') + '</div>';
   // Knapp daneben: wie weit war das Ziel entfernt?
   let near = '';
   if (s.fail && s.fail.short > 0) {
@@ -384,7 +397,7 @@ function renderSummary() {
     '<div class="rank-sub">' + ra.into + ' / ' + ra.span + ' XP TO NEXT LEVEL</div>' +
     (leveled ? '<div class="rank-up" id="rank-up">RANK UP! ' + esc(ra.name) + (ra.bonusCash > rb.bonusCash ? '<div class="tiny" style="letter-spacing:1px;margin-top:4px">START CASH +$' + ra.bonusCash + ' FROM NOW ON</div>' : '') + '</div>' : '') + '</div>' : '';
   appEl().innerHTML = '<div class="screen"><div class="spacer"></div>' +
-    '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec + rankGain +
+    '<div class="center huge bold glow sum-title ' + (good ? 'green' : 'red') + '">' + title + '</div>' + pot + near + rec + rankGain + nextGoalHtml(App.meta) +
     '<div class="panel amber" style="margin-top:12px;font-size:13px">' +
     row('DECK', DECKS[s.deckType].name.toUpperCase()) + row('TABLE REACHED', s.anteReached + '/' + Tuning.finalAnte) +
     row('BLINDS CLEARED', s.stats.blindsCleared) + row('BEST HAND', s.stats.bestHand) + '</div>' +
@@ -410,12 +423,12 @@ function renderSummary() {
   }
   const n = $('#pot-n');
   if (n && n.dataset.from) {
-    const from = Number(n.dataset.from), t0 = performance.now();
+    const from = Number(n.dataset.from), to = Number(n.dataset.to || 0), t0 = performance.now();
     (function tick(now) {
       if (!n.isConnected) return;
       const t = Math.min(1, (now - t0 - 900) / 1100);
-      if (t >= 0) n.textContent = Math.round(from * (1 - t * t));
-      if (t < 1) requestAnimationFrame(tick); else { n.textContent = '0'; n.classList.add('gone'); }
+      if (t >= 0) n.textContent = to + Math.round((from - to) * (1 - t * t));
+      if (t < 1) requestAnimationFrame(tick); else { n.textContent = String(to); n.classList.add(to > 0 ? 'kept' : 'gone'); }
     })(t0);
   }
 }
@@ -476,6 +489,7 @@ function renderRun() {
   }
   if (App.lastPhase !== E.phase) { App.mapSel = null; App.burnMode = false; App.pendingTrick = null; if (E.phase !== 'blindSelect') App.abandonArmed = false; }
   App.lastPhase = E.phase;
+  document.body.dataset.table = E.run.ante;
   updateHud(E);
 
   const key = bodyKeyFor(E.phase);
@@ -487,6 +501,7 @@ function renderRun() {
   } else if (key === 'map') {
     body.innerHTML = mapHtml(E);
     fitMap();
+    if (!E.run.map.cur && App.tableBannerKey !== E.run.ante) { App.tableBannerKey = E.run.ante; showBanner('TABLE ' + E.run.ante, tableRule(E.run.ante).name, 'hot'); }
   } else if (key === 'event') {
     body.innerHTML = eventHtml(E);
   } else if (key === 'blind') {
@@ -667,7 +682,7 @@ function updateTable(E) {
     oppEl.dataset.id = opp.id;
     oppEl.className = 'opp-avatar' + (opp.isBoss ? ' boss' : '');
   }
-  $('#boss').textContent = opp.isBoss ? opp.intro : '';
+  { const tr = tableRule(r.blind.ante); $('#boss').textContent = opp.isBoss ? opp.intro : r.blind.twist ? BOSSES[r.blind.twist].rule : tr.id === 'warm' ? '' : tr.text; }
   // Stimmung des Gegners: angespannt beim Aufdecken, schadenfroh oder erschrocken nach der Hand
   let mood = '';
   if (E.phase === 'dealerTurn') mood = 'tense';
@@ -768,7 +783,7 @@ function loadoutHtml(E) {
   }
   for (const it of E.run.consumables) chips += itemChipHtml(it.kind, (App.pendingTrick === it.uid ? ' armed' : '') + (E.canUse(it) ? '' : ' off'), 'use-cheater', it.uid);
   const rc = E.round.roulette;
-  const rtag = rc && E.run.charms.some(c => c.kind === 'rouletteTable') ? '<div class="rtag">' + icon('rouletteTable', 20) + '<span class="rc ' + (rc.red ? 'red' : '') + '">' + rankLabel(rc.rank) + '</span>' + (rc.red ? 'RED' : 'BLACK') + ' +8</div>' : '';
+  const rtag = rc && E.run.charms.some(c => c.kind === 'rouletteTable') ? '<div class="rtag">' + icon('rouletteTable', 20) + '<span class="rc ' + (rc.red ? 'red' : '') + '">' + rankLabel(rc.rank) + '</span>' + (rc.red ? 'RED' : 'BLACK') + ' +6</div>' : '';
   return '<div class="loadout"><div class="mini-reels">' + reels + '</div>' + rtag + '<div class="sp"></div><div class="chips-row">' + chips + '</div></div><div class="inspect">' + esc(App.inspected) + '</div>';
 }
 
@@ -777,7 +792,7 @@ function slotHtml(E) {
   let reels = '';
   for (let i = 0; i < Tuning.charmSlots; i++) {
     const c = E.run.charms[i];
-    reels += c ? '<div class="reel full ' + CHARMS[c.kind].rarity + (App.sel === c.uid ? ' sel' : '') + '" data-act="sel" data-uid="' + c.uid + '">' + icon(c.kind, 38) + '</div>'
+    reels += c ? '<div class="reel full ' + CHARMS[c.kind].rarity + (App.sel === c.uid ? ' sel' : '') + '" data-act="sel" data-uid="' + c.uid + '">' + icon(c.kind, 38) + (c.level ? '<i class="lv">' + '&#9733;'.repeat(c.level) + '</i>' : '') + '</div>'
       : '<div class="reel"><b>?</b></div>';
   }
   return '<div class="slot"><div class="slot-sign"><span>CHARMS</span></div><div class="slot-body"><div class="reels">' + reels + '</div><div class="lever"><i></i></div></div></div>';
@@ -792,8 +807,9 @@ function detailHtml(E, canSell) {
   const c = E.run.charms.find(x => x.uid === App.sel), it = E.run.consumables.find(x => x.uid === App.sel);
   if (c) {
     const def = CHARMS[c.kind];
-    return '<div class="detail"><div><div class="d-name">' + def.name.toUpperCase() + ' <span class="rar r-' + def.rarity + '">' + RARITY_LABEL[def.rarity] + '</span></div><div class="d-text">' + esc(def.text + (c.stack ? ' (now +' + c.stack + ')' : '')) + '</div></div>' +
-      (canSell ? '<button class="tbtn small red" data-act="sell" data-uid="' + c.uid + '">SELL $' + E.sellValue(c) + '</button>' : '') + '</div>';
+    return '<div class="detail"><div><div class="d-name">' + def.name.toUpperCase() + ' <span class="rar r-' + def.rarity + '">' + RARITY_LABEL[def.rarity] + '</span>' + (c.level ? ' <span class="lvs">' + '&#9733;'.repeat(c.level) + '</span>' : '') + '</div><div class="d-text">' + esc(def.text + (c.stack ? ' (now +' + c.stack + ')' : '')) + '</div></div>' +
+      (canSell ? '<div class="d-btns">' + (E.phase === 'shop' && !def.noUpgrade ? (E.upgradeCost(c) ? '<button class="tbtn small ' + (E.run.bankroll >= E.upgradeCost(c) ? 'gold' : 'dimmed') + '" data-act="upgrade" data-uid="' + c.uid + '">UPGRADE $' + E.upgradeCost(c) + '</button>' : '<span class="rar r-legendary">MAX</span>') : '') +
+        '<button class="tbtn small red" data-act="sell" data-uid="' + c.uid + '">SELL $' + E.sellValue(c) + '</button></div>' : '') + '</div>';
   }
   if (it) {
     const def = CHEATERS[it.kind];
@@ -850,7 +866,7 @@ function renderPreview(E) {
   const v = E.value(hand);
   const natural = v.isTwentyOneInTwo && !hand.isFromSplit;
   const b = scoreHand({ hand, value: v, outcome: 'win', isNatural: natural, charms: E.run.charms, bankroll: E.run.bankroll, payoutBoost: E.round.payoutBoost,
-    luckMult: E.round.luckMult, hotChips: E.round.hotChips, roulette: E.round.roulette, streak: E.run.streak || 0, tables: E.run.stats.tablesCleared, firstHand: E.round.log.length === 0 });
+    luckMult: E.round.luckMult, hotChips: E.round.hotChips, roulette: E.round.roulette, streak: E.run.streak || 0, table: tableRule(E.run.ante).id, tables: E.run.stats.tablesCleared, firstHand: E.round.log.length === 0 });
   multHeat(1);
   chips.textContent = Math.trunc(b.chips);
   mult.textContent = fmtNum(b.mult * b.factor);
@@ -898,7 +914,7 @@ async function playTally(token, resolved, key) {
       multHeat(run.mult);
       // Casino-Charms bekommen ihren eigenen kleinen Auftritt
       const ev = r.breakdown.events[step - 1];
-      if (ev && ev.source.indexOf('Slot Machine') === 0) { haptic('slotWin'); showBanner('7 - 7 - 7', 'SLOT MACHINE PAYS +8 MULT', 'hot'); coinShower(14, mult); }
+      if (ev && ev.source.indexOf('Slot Machine') === 0) { haptic('slotWin'); showBanner('7 - 7 - 7', 'SLOT MACHINE PAYS +6 MULT', 'hot'); coinShower(14, mult); }
       else if (ev && ev.kind === 'cash' && ev.value > 0) { haptic('coin'); coinShower(4, chips); }
     }
     await sleep(450);
@@ -990,7 +1006,13 @@ function nodePos(m, f, i) {
 function nodeBlind(run, f, i) {
   const n = run.map.floors[f][i];
   if (n.t !== 'fight' && n.t !== 'elite' && n.t !== 'boss') return null;
-  return currentBlind({ ante: run.ante, blindKind: n.t === 'boss' ? 2 : n.t === 'elite' ? 1 : 0, bossForAnte: run.bossForAnte, pending: { f, i, mod: n.mod || null } });
+  return currentBlind({ ante: run.ante, blindKind: n.t === 'boss' ? 2 : n.t === 'elite' ? 1 : 0, bossForAnte: run.bossForAnte, pending: { f, i, mod: n.mod || null, bounty: !!run.bounty } });
+}
+// Die Reise: 8 Tische, der letzte ist der Pokal
+function journeyHtml(ante) {
+  let h = '';
+  for (let t = 1; t <= Tuning.finalAnte; t++) h += '<span class="jp' + (t < ante ? ' done' : t === ante ? ' cur' : '') + (t === Tuning.finalAnte ? ' last' : '') + '">' + (t === Tuning.finalAnte ? icon('trophy', 14) : t) + '</span>';
+  return '<div class="journey">' + h + '</div>';
 }
 function nodeGoal(run, f, i) { const b = nodeBlind(run, f, i); return b ? b.target : 0; }
 function mapHtml(E) {
@@ -1041,7 +1063,8 @@ function mapHtml(E) {
   const picked = App.sel && E.run.charms.some(c => c.uid === App.sel) ? detailHtml(E, true) : '';
   const F = m.floors.length;
   return '<div class="col mapwrap" style="flex:1;min-height:0;gap:6px;padding-bottom:2px">' +
-    '<div class="map-title"><b>TABLE ' + run.ante + '</b><span>' + (m.cur ? 'STOP ' + (m.cur.f + 2) : 'STOP 1') + ' OF ' + F + (m.cur && m.cur.f + 2 === F ? ' &middot; THE BOSS' : '') + '</span></div>' +
+    '<div class="map-title"><div class="mt-l"><b>TABLE ' + run.ante + '</b><i>' + tableRule(run.ante).name + '</i></div>' + journeyHtml(run.ante) + '</div>' +
+    '<div class="rule-line">' + esc(tableRule(run.ante).text) + '</div>' +
     '<div class="map"><div class="map-in"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div></div>' +
     (info || picked || '<div class="legend">' + legend + '</div>') + mapGearHtml(E) +
     '<div class="row"><button class="tbtn dimmed" data-act="menu">MENU</button><button class="tbtn dimmed" data-act="abandon">' + (App.abandonArmed ? 'SURE? TAP AGAIN' : 'GIVE UP') + '</button></div></div>';
@@ -1051,7 +1074,7 @@ function mapGearHtml(E) {
   let reels = '';
   for (let i = 0; i < Tuning.charmSlots; i++) {
     const c = E.run.charms[i];
-    reels += c ? '<div class="mreel ' + CHARMS[c.kind].rarity + (App.sel === c.uid ? ' sel' : '') + '" title="' + esc(CHARMS[c.kind].name + ': ' + CHARMS[c.kind].text) + '" data-act="sel" data-uid="' + c.uid + '">' + icon(c.kind, 20) + '</div>' : '<div class="mreel emp"></div>';
+    reels += c ? '<div class="mreel ' + CHARMS[c.kind].rarity + (App.sel === c.uid ? ' sel' : '') + (c.level ? ' lvd' : '') + '" title="' + esc(CHARMS[c.kind].name + ': ' + CHARMS[c.kind].text) + '" data-act="sel" data-uid="' + c.uid + '">' + icon(c.kind, 20) + (c.level ? '<i class="lv">' + c.level + '</i>' : '') + '</div>' : '<div class="mreel emp"></div>';
   }
   const chips = E.run.consumables.map(it => itemChipHtml(it.kind, '', '', '')).join('');
   return '<div class="map-gear"><div class="mini-reels">' + reels + '</div><div class="sp"></div><div class="chips-row">' + chips + '</div></div>';
@@ -1077,7 +1100,7 @@ function eventHtml(E) {
   }
   if (def.game === 'treasure') return treasureHtml(E, ev);
   const opts = def.options.map((o, i) => '<button class="tbtn ' + (o.leave ? 'dimmed' : 'big') + '" data-act="event-opt" data-i="' + i + '"' +
-    (o.cost && E.run.bankroll < o.cost ? ' disabled' : '') + '>' + o.label + '</button>').join('');
+    ((o.cost && E.run.bankroll < o.cost) || (o.needsSlot && E.run.charms.length >= Tuning.charmSlots) ? ' disabled' : '') + '>' + o.label + '</button>').join('');
   return '<div class="col ev" style="flex:1;gap:12px;padding-bottom:6px"><div class="spacer"></div>' + head + '<div class="spacer"></div>' + opts + '</div>';
 }
 
@@ -1181,7 +1204,7 @@ function handBadgeHtml(E, hand, active) {
 
 // ----- Blind-Auswahl / Cashout / Shop -----
 function blindHtml(E) {
-  const b = currentBlind(E.run), rules = rulesFor(b.boss), kind = BLIND_KINDS[b.kind];
+  const b = currentBlind(E.run), rules = rulesFor(b.boss || b.twist, b.ante), kind = BLIND_KINDS[b.kind];
   const opp = opponentFor(b);
   const hands = Math.max(1, E.handsPerRound - rules.handsPenalty);
   const ahead = '';
@@ -1190,8 +1213,11 @@ function blindHtml(E) {
     '<div class="center tiny dim" style="letter-spacing:4px">' + tag + '</div>' +
     '<div class="center big bold ' + (opp.isBoss ? 'red' : 'amber') + '">' + opp.name + '</div>' +
     '<div class="center small dim" style="margin-top:-6px">' + esc(opp.intro) + '</div>' +
+    (b.twist ? '<div class="center tiny red">TWIST: ' + esc(BOSSES[b.twist].rule) + '</div>' : '') +
+    (b.bounty ? '<div class="center tiny amber">BOUNTY: GOAL x1.3, PAYS +$8</div>' : '') +
+    '<div class="center tiny cyan">' + tableRule(b.ante).name + ': ' + esc(tableRule(b.ante).text) + '</div>' +
     '<div class="center" style="margin-top:6px"><div class="tiny dim">GOAL</div><div class="huge bold green glow">' + b.target + '</div>' +
-    '<div class="small dim" style="margin-top:4px">REWARD $' + (kind.reward + (b.mod ? MOD_INFO[b.mod].reward : 0)) + ' &middot; ' + hands + ' HANDS &middot; ' + E.run.rerolls + ' REROLLS LEFT</div></div>' +
+    '<div class="small dim" style="margin-top:4px">REWARD $' + (kind.reward + (b.mod ? MOD_INFO[b.mod].reward : 0) + (b.bounty ? 8 : 0)) + ' &middot; ' + hands + ' HANDS &middot; ' + E.run.rerolls + ' REROLLS LEFT</div></div>' +
     ahead + '<div class="spacer"></div>' +
     slotHtml(E) + itemRowHtml(E) + (App.sel ? detailHtml(E, true) : '') +
     '<button class="tbtn big green" data-act="play-blind">PLAY</button>' +
